@@ -15,6 +15,14 @@ public record InvestigationReport(
         List<String> activity,
         ScoutDiagnostics scoutDiagnostics
 ) {
+    public InvestigationReport(UUID id, Instant createdAt, SearchRequest criteria,
+                               List<CarCandidate> candidates, String investigation,
+                               String skepticReview, String recommendation, List<String> activity) {
+        this(id, createdAt, criteria, candidates, investigation, skepticReview, recommendation,
+                activity, new ScoutDiagnostics(candidates == null ? 0 : candidates.size(),
+                candidates == null ? 0 : candidates.size(), List.of(), List.of()));
+    }
+
     public record ScoutDiagnostics(
             int discoveredCount,
             int eligibleCount,
