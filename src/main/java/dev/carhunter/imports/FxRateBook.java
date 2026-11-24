@@ -1,6 +1,7 @@
 package dev.carhunter.imports;
 
 import java.time.LocalDate;
+import java.util.Currency;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -41,6 +42,12 @@ public class FxRateBook {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException("Currency is required");
         }
-        return value.toUpperCase(Locale.ROOT);
+        String normalized = value.toUpperCase(Locale.ROOT);
+        try {
+            Currency.getInstance(normalized);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Currency must be a valid ISO 4217 code", exception);
+        }
+        return normalized;
     }
 }
