@@ -39,11 +39,11 @@ public class CarHunterService {
             You are INVESTIGATOR, an automotive due-diligence researcher.
             For each US listing, research model/engine/gearbox reliability, known recurring faults, recalls if discoverable, title-history verification options and market-price context.
             Cite source URLs inline. Separate verified facts, seller claims, general model-level risks and unknowns.
-            Treat listing title wording as a seller/dealer claim, not independent title-history verification. Never claim mileage, ownership, accident or title history is verified unless a trustworthy vehicle-specific source proves it.
+            The Java layer has fetched the public listing HTML and checked whether the quoted wording appears in visible page text. Treat that as confirmation of the page text only, not independent title-history verification. Never claim mileage, ownership, accident or title history is verified unless a trustworthy vehicle-specific source proves it.
             """;
     private static final String SKEPTIC = """
             You are SKEPTIC, an independent adversarial reviewer. Do not repeat the investigator's conclusions.
-            Try to disprove the strongest claims, identify stale or weak sources, check whether the listing is a direct US retail listing, and challenge any unsupported Clean Title claim.
+            Try to disprove the strongest claims, identify stale or weak sources, check whether the listing is a direct US retail listing, and challenge any unsupported Clean Title claim. A successful page fetch proves only that the quote appeared in the retrieved HTML, not that the title brand is legally clean.
             Start your response with exactly one token: SUFFICIENT or NEEDS_MORE_EVIDENCE.
             If more evidence is needed, list up to three precise follow-up searches. If evidence remains unavailable, say so explicitly. Do not manufacture certainty.
             """;
@@ -62,14 +62,16 @@ public class CarHunterService {
     private final UsListingQueryPlanner queryPlanner;
     private final ListingEligibility titleEligibility;
     private final ListingDeduplicator deduplicator;
+    private final ListingPageVerifier pageVerifier;
 
     public CarHunterService(AgentGateway agents, ObjectMapper mapper,
-                            UsListingQueryPlanner queryPlanner, ListingEligibility titleEligibility, ListingDeduplicator deduplicator) {
+                            UsListingQueryPlanner queryPlanner, ListingEligibility titleEligibility, ListingDeduplicator deduplicator, ListingPageVerifier pageVerifier) {
         this.agents = agents;
         this.mapper = mapper;
         this.queryPlanner = queryPlanner;
         this.titleEligibility = titleEligibility;
         this.deduplicator = deduplicator;
+        this.pageVerifier = pageVerifier;
     }
 
     public InvestigationReport investigate(SearchRequest request) {
@@ -81,12 +83,33 @@ public class CarHunterService {
         String scoutOutput = agents.run("SCOUT", SCOUT,
                 "Buyer criteria (JSON):\n" + criteria + "\n\nExecute these marketplace-specific searches:\n- "
                         + String.join("\n- ", queries));
-        List<CarCandidate> candidates = deduplicator.deduplicate(parseCandidates(scoutOutput, request))
+        List<CarCandidate> discovered = deduplicator.deduplicate(parseCandidates(scoutOutput, request))
                 .stream().limit(request.candidateLimit()).toList();
-        if (candidates.isEmpty()) {
+        if (discovered.isEmpty()) {
             throw new IllegalStateException("Scout found no listings that meet the US retail and evidenced Clean Title requirements. Try widening the vehicle criteria or budget.");
         }
-        activity.add("SCOUT: accepted " + candidates.size() + " US listings with explicit Clean Title wording");
+
+        List<CarCandidate> candidates = new ArrayList<>();
+        List<String> verificationFailures = new ArrayList<>();
+        for (CarCandidate candidate : discovered) {
+            ListingPageVerifier.Verification verification = pageVerifier.verify(
+                    candidate.sourceUrl(), candidate.titleEvidenceQuote());
+            if (verification.verified()) {
+                candidates.add(candidate);
+            } else {
+                verificationFailures.add(candidate.sourceUrl() + " — " + verification.reason());
+            }
+        }
+        if (candidates.isEmpty()) {
+            throw new IllegalStateException("No listing passed independent page verification. " +
+                    String.join(" ", verificationFailures));
+        }
+        activity.add("SCOUT: independently fetched " + discovered.size() + " listing pages; "
+                + candidates.size() + " contained the exact seller title-evidence quote");
+        if (!verificationFailures.isEmpty()) {
+            activity.add("SCOUT: excluded " + verificationFailures.size()
+                    + " listings because page evidence could not be independently confirmed");
+        }
 
         activity.add("INVESTIGATOR: researching reliability, recalls, title checks and price context");
         String research = agents.run("INVESTIGATOR", INVESTIGATOR,
