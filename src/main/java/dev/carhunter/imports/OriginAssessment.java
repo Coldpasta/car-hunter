@@ -3,7 +3,7 @@ package dev.carhunter.imports;
 import dev.carhunter.domain.EvidenceReference;
 
 import java.time.Instant;
-import java.util.List;
+import java.util.Arrays;\nimport java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -26,11 +26,16 @@ public record OriginAssessment(
         transportEvidence = transportEvidence == null ? List.of() : List.copyOf(transportEvidence);
         if (countryCode != null && !countryCode.isBlank()) {
             countryCode = countryCode.toUpperCase(Locale.ROOT);
-            if (!countryCode.matches("[A-Z]{2}")) {
+            if (!countryCode.matches("[A-Z]{2}") || !Arrays.asList(Locale.getISOCountries()).contains(countryCode)) {
                 throw new IllegalArgumentException("Origin country must be an ISO alpha-2 code");
             }
         } else {
             countryCode = null;
+        }
+        if (countryCode != null && !countryCode.equals("US")
+                && (directTransportStatus == DirectTransportStatus.DIRECT_US_TO_EU_PROVEN
+                || directTransportStatus == DirectTransportStatus.THIRD_COUNTRY_SUPERVISED_AND_UNALTERED_PROVEN)) {
+            throw new IllegalArgumentException("US transport evidence statuses require US as the declared origin");
         }
         if (status == OriginAssessmentStatus.CONFIRMED) {
             if (countryCode == null) {
