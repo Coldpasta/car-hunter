@@ -81,7 +81,8 @@ public class CarHunterService {
         String scoutOutput = agents.run("SCOUT", SCOUT,
                 "Buyer criteria (JSON):\n" + criteria + "\n\nExecute these marketplace-specific searches:\n- "
                         + String.join("\n- ", queries));
-        List<CarCandidate> candidates = deduplicator.deduplicate(parseCandidates(scoutOutput, request));
+        List<CarCandidate> candidates = deduplicator.deduplicate(parseCandidates(scoutOutput, request))
+                .stream().limit(request.candidateLimit()).toList();
         if (candidates.isEmpty()) {
             throw new IllegalStateException("Scout found no listings that meet the US retail and evidenced Clean Title requirements. Try widening the vehicle criteria or budget.");
         }
@@ -156,7 +157,6 @@ public class CarHunterService {
                         year, titleEligibility.mileageMilesToKm(miles), text(node, "fuel"),
                         text(node, "transmission"), text(node, "sellerClaims"), "CLEAN", quote, evidenceUrl,
                         sellerType, normalizeVin(text(node, "vin"))));
-                if (candidates.size() >= request.candidateLimit()) break;
             }
             return List.copyOf(candidates);
         } catch (Exception ex) {
