@@ -1,5 +1,6 @@
 package dev.carhunter.imports;
 
+import java.util.Locale;
 import java.util.Objects;
 
 /** One independently auditable cost input for a landed-cost estimate. */
@@ -21,6 +22,6 @@ public record CostScenarioComponent(
             throw new IllegalArgumentException("Component currency is required");
         }
         Objects.requireNonNull(amount, "amount");
-        currency = currency.toUpperCase();
+        currency = currency.toUpperCase(Locale.ROOT);
     }
 }
