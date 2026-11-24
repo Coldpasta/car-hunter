@@ -65,7 +65,7 @@ class FxRateBookTest {
                 "https://example.com/rates", LocalDate.parse("2026-11-24"), LocalDate.parse("2026-11-24"), null, Instant.parse("2026-11-24T10:00:00Z")));
         assertThrows(IllegalArgumentException.class, () -> new FxRateRecord(
                 FxRatePurpose.CUSTOMS, "USD", "PLN", BigDecimal.ONE,
-                "http://example.com/rates", LocalDate.now(), LocalDate.now(), null, Instant.now()));
+                "http://example.com/rates", LocalDate.parse("2026-11-24"), LocalDate.parse("2026-11-24"), null, Instant.parse("2026-11-24T10:00:00Z")));
     }
 
     @Test
