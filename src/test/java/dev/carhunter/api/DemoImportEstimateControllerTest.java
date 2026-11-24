@@ -39,7 +39,7 @@ class DemoImportEstimateControllerTest {
 
     @Test
     void rejectsMissingRequiredInput() throws Exception {
-        String request = validRequest().replace("\"insuranceUsd\":200,", "");
+        String request = validRequest().replace("\"insuranceUsd\": 200,", "");
 
         mockMvc.perform(post("/api/demo/import-estimates")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -49,7 +49,7 @@ class DemoImportEstimateControllerTest {
 
     @Test
     void rejectsNegativeVehiclePrice() throws Exception {
-        String request = validRequest().replace("\"vehiclePriceUsd\":20000", "\"vehiclePriceUsd\":-1");
+        String request = validRequest().replace("\"vehiclePriceUsd\": 20000", "\"vehiclePriceUsd\": -1");
 
         mockMvc.perform(post("/api/demo/import-estimates")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -59,7 +59,7 @@ class DemoImportEstimateControllerTest {
 
     @Test
     void rejectsTaxRateAboveOneHundredPercent() throws Exception {
-        String request = validRequest().replace("\"assumedVatRatePercent\":23", "\"assumedVatRatePercent\":101");
+        String request = validRequest().replace("\"assumedVatRatePercent\": 23", "\"assumedVatRatePercent\": 101");
 
         mockMvc.perform(post("/api/demo/import-estimates")
                         .contentType(MediaType.APPLICATION_JSON)
