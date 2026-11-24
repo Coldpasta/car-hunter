@@ -47,6 +47,6 @@ public record OriginAssessment(
 
     public boolean hasRequiredUsTransportEvidence() {
         return directTransportStatus == DirectTransportStatus.DIRECT_US_TO_EU_PROVEN
-                || directTransportStatus == DirectTransportStatus.THIRD_COUNTRY_UNDER_CUSTOMS_SUPERVISION_PROVEN;
+                || directTransportStatus == DirectTransportStatus.THIRD_COUNTRY_SUPERVISED_AND_UNALTERED_PROVEN;
     }
 }
