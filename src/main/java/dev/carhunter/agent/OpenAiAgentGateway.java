@@ -19,12 +19,12 @@ public class OpenAiAgentGateway implements AgentGateway {
 
     public OpenAiAgentGateway(RestClient.Builder builder, ObjectMapper mapper,
             @Value("${carhunter.openai.base-url}") String baseUrl,
-            @Value("${carhunter.openai.api-key:}") String apiKey,
+            @Value("${carhunter.openai.api-key}") String apiKey,
             @Value("${carhunter.openai.model}") String model,
             @Value("${carhunter.openai.max-output-tokens:2500}") int maxOutputTokens) {
-        RestClient.Builder configured = builder.baseUrl(baseUrl);
-        if (apiKey != null && !apiKey.isBlank()) configured.defaultHeader("Authorization", "Bearer " + apiKey);
-        this.client = configured.build();
+        this.client = builder.baseUrl(baseUrl)
+                .defaultHeader("Authorization", "Bearer " + apiKey)
+                .build();
         this.mapper = mapper;
         this.model = model;
         this.maxOutputTokens = maxOutputTokens;
@@ -34,12 +34,12 @@ public class OpenAiAgentGateway implements AgentGateway {
     public String run(String role, String instructions, String context) {
         String input = "ROLE: " + role + "\n\nINSTRUCTIONS:\n" + instructions
                 + "\n\nINVESTIGATION CONTEXT:\n" + context;
-        // Web retrieval is performed by TavilySearchGateway; the Fly.io OpenAI Connector
-        // does not support forwarding the hosted web_search tool.
+        // Sprite Connector base URLs already include /v1, so call /responses.
+        // Web retrieval is performed separately by TavilySearchGateway.
         Map<String, Object> body = Map.of("model", model, "input", input,
                 "max_output_tokens", maxOutputTokens, "store", false);
         try {
-            String response = client.post().uri("/v1/responses")
+            String response = client.post().uri("/responses")
                     .contentType(MediaType.APPLICATION_JSON).body(body)
                     .retrieve().body(String.class);
             return extractText(response);
