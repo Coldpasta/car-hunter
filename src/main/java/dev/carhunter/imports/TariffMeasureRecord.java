@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.Locale;
+import java.util.Arrays;\nimport java.util.Locale;
 import java.util.Objects;
 
 /** One exact, sourced tariff measure for one classification, origin and effective period. */
@@ -23,7 +23,7 @@ public record TariffMeasureRecord(
         classificationCode = VehicleClassificationAssessment.normalizeCode(classificationCode);
         Objects.requireNonNull(originCountryCode, "originCountryCode");
         originCountryCode = originCountryCode.toUpperCase(Locale.ROOT);
-        if (!originCountryCode.matches("[A-Z]{2}")) {
+        if (!originCountryCode.matches("[A-Z]{2}") || !Arrays.asList(Locale.getISOCountries()).contains(originCountryCode)) {
             throw new IllegalArgumentException("Origin country must be an ISO alpha-2 code");
         }
         Objects.requireNonNull(dutyRatePercent, "dutyRatePercent");
