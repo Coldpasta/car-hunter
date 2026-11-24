@@ -18,20 +18,21 @@ class CarHunterServiceTest {
     private final CarHunterService service = new CarHunterService(agents, new ObjectMapper());
 
     private SearchRequest criteria() {
-        return new SearchRequest(new BigDecimal("100000"), "PLN", List.of("Poland"),
-                "family SUV", List.of("petrol", "hybrid"), "automatic", 2021, 150000, 5);
+        return new SearchRequest("US", "PL", new BigDecimal("25000"), "USD",
+                "Toyota", "RAV4", "SUV", List.of("hybrid"), "automatic",
+                2021, 2025, 90000, List.of("dealer", "private"), "CA", null, 5);
     }
 
     @Test
     void runsFourRolesAndReturnsReportWhenSkepticAccepts() {
         when(agents.run(eq("SCOUT"), anyString(), anyString())).thenReturn("""
                 {"candidates":[{"id":"car-1","makeModel":"Toyota RAV4","title":"2022 Toyota RAV4 Hybrid",
-                "sourceUrl":"https://example.com/listing/1","country":"Poland","price":99000,
-                "currency":"PLN","year":2022,"mileageKm":80000,"fuel":"hybrid","transmission":"automatic",
-                "sellerClaims":"Full service history"}]}
+                "sourceUrl":"https://example.com/listing/1","country":"US","price":24000,
+                "currency":"USD","year":2022,"mileageKm":80000,"fuel":"hybrid","transmission":"automatic",
+                "sellerClaims":"Dealer listing"}]}
                 """);
         when(agents.run(eq("INVESTIGATOR"), anyString(), anyString())).thenReturn("Reliability research with sources.");
-        when(agents.run(eq("SKEPTIC"), anyString(), anyString())).thenReturn("SUFFICIENT\nNo critical contradiction found; vehicle history remains unverified.");
+        when(agents.run(eq("SKEPTIC"), anyString(), anyString())).thenReturn("SUFFICIENT\nNo critical contradiction found; title status remains unverified.");
         when(agents.run(eq("DECISION"), anyString(), anyString())).thenReturn("1. Candidate one — inspect before purchase.");
 
         InvestigationReport report = service.investigate(criteria());
@@ -50,12 +51,12 @@ class CarHunterServiceTest {
     void skepticCanTriggerOnlyOneFollowUpRound() {
         when(agents.run(eq("SCOUT"), anyString(), anyString())).thenReturn("""
                 {"candidates":[{"id":"car-1","title":"SUV","sourceUrl":"https://example.com/car",
-                "price":90000,"currency":"PLN"}]}
+                "price":24000,"currency":"USD"}]}
                 """);
         when(agents.run(eq("INVESTIGATOR"), anyString(), anyString()))
                 .thenReturn("Initial research.", "Follow-up research.");
         when(agents.run(eq("SKEPTIC"), anyString(), anyString()))
-                .thenReturn("NEEDS_MORE_EVIDENCE\nCheck recall information.", "SUFFICIENT\nStill cannot verify accident history.");
+                .thenReturn("NEEDS_MORE_EVIDENCE\nCheck recall information.", "SUFFICIENT\nStill cannot verify title history.");
         when(agents.run(eq("DECISION"), anyString(), anyString())).thenReturn("Proceed to independent inspection.");
 
         InvestigationReport report = service.investigate(criteria());
