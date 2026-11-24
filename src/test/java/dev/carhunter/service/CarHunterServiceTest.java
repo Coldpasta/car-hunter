@@ -18,7 +18,13 @@ class CarHunterServiceTest {
     private final UsListingQueryPlanner planner = new UsListingQueryPlanner();
     private final ListingEligibility eligibility = new ListingEligibility();
     private final ListingDeduplicator deduplicator = new ListingDeduplicator();
-    private final CarHunterService service = new CarHunterService(agents, new ObjectMapper(), planner, eligibility, deduplicator);
+    private final ListingPageVerifier pageVerifier = mock(ListingPageVerifier.class);
+    private final CarHunterService service = new CarHunterService(agents, new ObjectMapper(), planner, eligibility, deduplicator, pageVerifier);
+
+    private void allowPageEvidence() {
+        when(pageVerifier.verify(anyString(), anyString())).thenReturn(
+                new ListingPageVerifier.Verification(true, "quote found", java.time.Instant.parse("2026-11-24T00:00:00Z")));
+    }
 
     private SearchRequest criteria() {
         return new SearchRequest("US", "PL", new BigDecimal("25000"), "USD",
@@ -39,6 +45,7 @@ class CarHunterServiceTest {
 
     @Test
     void runsFourRolesAndReturnsReportWhenSkepticAccepts() {
+        allowPageEvidence();
         when(agents.run(eq("SCOUT"), anyString(), anyString())).thenReturn(validScoutResult());
         when(agents.run(eq("INVESTIGATOR"), anyString(), anyString())).thenReturn("Reliability research with sources.");
         when(agents.run(eq("SKEPTIC"), anyString(), anyString())).thenReturn("SUFFICIENT\nNo critical contradiction found; listing wording is not independent title verification.");
