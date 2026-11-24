@@ -19,7 +19,7 @@ The agents are specialized roles orchestrated sequentially by a bounded workflow
 
 Requirements: Java 21 and Maven 3.9+.
 
-Set OPENAI_BASE_URL=https://api.openai.com, OPENAI_API_KEY to your OpenAI project key, and TAVILY_BASE_URL to a reachable Tavily API-compatible endpoint. Then run:
+For direct local OpenAI access, set OPENAI_BASE_URL=https://api.openai.com/v1, OPENAI_API_KEY to your OpenAI project key, and TAVILY_BASE_URL to a reachable Tavily API-compatible endpoint. Then run:
 
     mvn spring-boot:run
 
@@ -28,13 +28,14 @@ Open http://localhost:8080.
 ## Fly.io Sprites Connectors
 
 1. Add OpenAI and Tavily Connectors in the Fly.io dashboard.
-2. Grant both Connectors access to the Sprite label used by CAR HUNTER.
-3. Leave OPENAI_API_KEY unset in the Sprite; Fly injects the credential at the OpenAI gateway.
-4. Set OPENAI_BASE_URL to the OpenAI Connector gateway base URL and OPENAI_MODEL to a model enabled for your OpenAI project.
-5. Set TAVILY_BASE_URL to the Tavily Connector URL ending in /tavily/<connector-id>. Do not append /search; the application adds that path.
-6. Do not store your raw Tavily API key in the Sprite; Fly injects it through the Connector.
+2. Grant both Connectors access to the Sprite label used by CAR HUNTER (the screenshot configuration uses app:car-hunter).
+3. Set OPENAI_BASE_URL to the OpenAI Connector URL shown in its API Usage section, including the connector ID and ending in /v1.
+4. Set OPENAI_API_KEY=sprites. This is a placeholder; the gateway injects the real OpenAI credential. No real OpenAI key is needed in the Sprite.
+5. Set OPENAI_MODEL to a model enabled for your OpenAI project.
+6. Set TAVILY_BASE_URL to the Tavily Connector URL ending in /tavily/<connector-id>. Do not append /search; the application adds that path.
+7. Do not store your raw Tavily API key in the Sprite; Fly injects it through the Connector.
 
-The application calls POST /search on the Tavily Connector for discovery and research. The OpenAI Connector is used only for model reasoning through /v1/responses; it does not request the unsupported hosted web_search tool.
+The OpenAI client calls POST /responses relative to the configured /v1 base URL. Tavily calls POST /search relative to its connector base URL. The OpenAI Connector is used only for model reasoning; web retrieval is performed by Tavily.
 
 ## API
 
