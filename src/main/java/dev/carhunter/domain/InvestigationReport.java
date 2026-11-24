@@ -12,5 +12,19 @@ public record InvestigationReport(
         String investigation,
         String skepticReview,
         String recommendation,
-        List<String> activity
-) {}
+        List<String> activity,
+        ScoutDiagnostics scoutDiagnostics
+) {
+    public record ScoutDiagnostics(
+            int discoveredCount,
+            int eligibleCount,
+            List<String> searchedSources,
+            List<Rejection> rejections
+    ) {}
+
+    public record Rejection(
+            String sourceUrl,
+            String reasonCode,
+            String reason
+    ) {}
+}
