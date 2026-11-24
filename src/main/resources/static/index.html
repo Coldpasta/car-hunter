@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CAR HUNTER — Autonomous Car Buyer</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1020;--panel:#141c30;--line:#293650;--muted:#9aabc5;--text:#edf3ff;--accent:#69d6b2}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 15% 0%,#1b3150 0,transparent 42%),var(--bg);color:var(--text);font:15px/1.55 Inter,system-ui,sans-serif}
+main{max-width:1050px;margin:auto;padding:44px 22px}.eyebrow{color:var(--accent);letter-spacing:.18em;font-size:11px;font-weight:800}.hero{display:flex;justify-content:space-between;align-items:end;gap:20px;margin-bottom:28px}h1{font-size:clamp(38px,7vw,66px);line-height:1;margin:12px 0}p{color:var(--muted)}.pill{border:1px solid #315a55;color:var(--accent);padding:7px 11px;border-radius:99px;font-size:12px;white-space:nowrap}
+.layout{display:grid;grid-template-columns:340px 1fr;gap:18px}.panel{background:#111a2bdf;border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:0 16px 50px #0003}h2{font-size:17px;margin:0 0 16px}label{display:block;color:#c2cee0;font-size:12px;margin:13px 0 6px}input,select{width:100%;background:#0b1323;color:var(--text);border:1px solid #34435d;border-radius:8px;padding:11px;font:inherit}button{width:100%;margin-top:18px;background:var(--accent);color:#09231d;border:0;border-radius:9px;padding:13px;font-weight:800;cursor:pointer}button:disabled{opacity:.5;cursor:wait}.hint{font-size:12px;color:var(--muted)}.empty{min-height:330px;display:grid;place-items:center;text-align:center;color:var(--muted);padding:20px}.result{white-space:pre-wrap;color:#dce6f5}.trace{border-top:1px solid var(--line);padding-top:12px;margin-top:18px;font-size:12px;color:var(--muted)}.trace div{margin:5px 0}.car{border:1px solid var(--line);padding:12px;border-radius:10px;margin:10px 0}.car a{color:var(--accent)}.error{color:#ff9a9a}.hidden{display:none}@media(max-width:760px){.layout{grid-template-columns:1fr}.hero{display:block}.pill{display:inline-block}}
+</style>
+</head>
+<body><main>
+<div class="hero"><div><div class="eyebrow">AUTONOMOUS VEHICLE INTELLIGENCE</div><h1>CAR HUNTER<span style="color:var(--accent)">.</span></h1><p>Don't just search for a car. Investigate it before you buy it.</p></div><span class="pill">4-agent investigation</span></div>
+<div class="layout">
+<section class="panel"><h2>What are you looking for?</h2>
+<form id="search">
+<label>Maximum budget</label><input name="budget" type="number" min="1000" value="100000" required>
+<label>Currency</label><select name="currency"><option>PLN</option><option>EUR</option></select>
+<label>Countries (comma separated)</label><input name="countries" value="Poland, Germany" required>
+<label>Vehicle type</label><input name="bodyType" value="family SUV" required>
+<label>Fuel types</label><input name="fuel" value="petrol, hybrid" required>
+<label>Transmission</label><select name="transmission"><option>automatic</option><option>manual</option><option>any</option></select>
+<label>Minimum year</label><input name="minYear" type="number" value="2021" min="1990" max="2035">
+<label>Maximum mileage (km)</label><input name="maxMileageKm" type="number" value="150000" min="0">
+<label>Maximum candidates</label><input name="candidateLimit" type="number" value="5" min="1" max="8">
+<button id="submit" type="submit">Start autonomous hunt</button><p class="hint">Searches public sources. Results are advisory and require independent inspection.</p>
+</form></section>
+<section class="panel"><div id="empty" class="empty"><div><div style="font-size:38px">⌕</div><h2>Your investigation starts here</h2><p>Scout → Investigator → Skeptic → Decision</p><p class="hint">The Skeptic can request another research round if evidence is weak.</p></div></div>
+<div id="loading" class="empty hidden"><div><h2>Investigating vehicles…</h2><p>Multiple agent roles are working through your objective.</p><p class="hint">This can take a minute or two. Keep this tab open.</p></div></div>
+<div id="output" class="hidden"><h2>Investigation report</h2><div id="cars"></div><h2>Recommendation</h2><div id="recommendation" class="result"></div><h2>Investigation notes</h2><details><summary>Research and skeptic review</summary><div id="research" class="result"></div><div id="skeptic" class="result"></div></details><div id="trace" class="trace"></div></div>
+<div id="error" class="hidden error"></div></section>
+</div></main>
+<script>
+const form=document.querySelector('#search'),button=document.querySelector('#submit');
+const show=id=>document.querySelector('#'+id).classList.remove('hidden'),hide=id=>document.querySelector('#'+id).classList.add('hidden');
+form.addEventListener('submit',async e=>{e.preventDefault();button.disabled=true;hide('empty');hide('output');hide('error');show('loading');
+const f=new FormData(form),countries=String(f.get('countries')).split(',').map(x=>x.trim()).filter(Boolean),fuel=String(f.get('fuel')).split(',').map(x=>x.trim()).filter(Boolean);
+const payload={budget:Number(f.get('budget')),currency:f.get('currency'),countries,bodyType:f.get('bodyType'),fuel,transmission:f.get('transmission'),minYear:Number(f.get('minYear')),maxMileageKm:Number(f.get('maxMileageKm')),candidateLimit:Number(f.get('candidateLimit'))};
+try{const response=await fetch('/api/investigations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await response.json();if(!response.ok)throw new Error(data.details||data.error||'Investigation failed');
+document.querySelector('#cars').innerHTML=(data.candidates||[]).map(c=>'<article class="car"><strong>'+esc(c.title||c.makeModel||'Vehicle candidate')+'</strong><div>'+esc([c.year,c.mileageKm?c.mileageKm.toLocaleString()+' km':null,c.price?c.price+' '+(c.currency||''):null,c.country].filter(Boolean).join(' · '))+'</div><a href="'+esc(c.sourceUrl)+'" target="_blank" rel="noopener">Open original listing ↗</a></article>').join('');
+document.querySelector('#recommendation').textContent=data.recommendation||'No recommendation returned.';document.querySelector('#research').textContent=data.investigation||'';document.querySelector('#skeptic').textContent=data.skepticReview||'';document.querySelector('#trace').innerHTML=(data.activity||[]).map(x=>'<div>✓ '+esc(x)+'</div>').join('');hide('loading');show('output');
+}catch(err){hide('loading');document.querySelector('#error').textContent=err.message;show('error');}finally{button.disabled=false;}});
+function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+</script></body></html>
