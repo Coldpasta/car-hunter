@@ -3,7 +3,8 @@ package dev.carhunter.imports;
 import dev.carhunter.domain.EvidenceReference;
 
 import java.time.Instant;
-import java.util.Arrays;\nimport java.util.List;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
