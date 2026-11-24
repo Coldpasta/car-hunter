@@ -44,7 +44,7 @@ Regulation (EU) 2026/1455, Article 1(1), sets customs duties at 0% for goods cla
 
 Annex I explicitly lists CN Chapter 87 ("Vehicles other than railway or tramway rolling stock, and parts and accessories thereof"), which includes heading 8703 passenger cars. This confirms the chapter-level scope of the Regulation for passenger cars; it does not replace exact classification or the live tariff check. The exact CN/TARIC code, origin, import date and any currently applicable/suspended measure must still be checked in TARIC/ISZTAR4 before the engine applies a rate.
 
-The Commission's Article 59a Q&A (updated 16 October 2026) adds an important operational condition: the declarant must hold sufficient evidence of US origin and direct transport when lodging the declaration. A "Made in US" statement, invoice statement, Certificate of Origin or decoded VIN is not sufficient on its own. If transported through a third country, evidence must show customs supervision and no disallowed alteration.
+The Commission's Article 59a Q&A (updated 16 October 2026) adds an important operational condition: the declarant must hold sufficient evidence of US origin and direct transport when lodging the declaration. A "Made in US" statement, invoice statement, Certificate of Origin or decoded VIN is not sufficient on its own. Store origin evidence separately from bill-of-lading / transit evidence. If transported through a third country, evidence must show customs supervision and no disallowed alteration.
 
 **Implementation rule:**
 - Never apply 0% merely because the vehicle was bought, listed, exported or shipped from the US.
