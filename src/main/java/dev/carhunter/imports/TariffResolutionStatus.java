@@ -1,0 +1,11 @@
+package dev.carhunter.imports;
+
+public enum TariffResolutionStatus {
+    FOUND,
+    CLASSIFICATION_UNRESOLVED,
+    CLASSIFICATION_OUT_OF_SCOPE,
+    ORIGIN_UNVERIFIED,
+    ORIGIN_CONFLICTING,
+    DIRECT_TRANSPORT_UNPROVEN,
+    NO_APPLICABLE_MEASURE
+}

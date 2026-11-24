@@ -42,7 +42,9 @@ The country from which a vehicle is shipped or purchased is not, by itself, its 
 
 Regulation (EU) 2026/1455, Article 1(1), sets customs duties at 0% for goods classified under CN codes listed in Annex I and originating in the United States. The regulation entered into force on 1 July 2026 and applies until 31 December 2029, subject to its provisions, including the possibility of suspension.
 
-For passenger cars, the research indicates that the relevant vehicle codes in Chapter 87 / heading 8703 are within the Annex I scope. This must be confirmed against the exact CN code and live TARIC/ISZTAR4 measure before the engine applies 0%.
+Annex I explicitly lists CN Chapter 87 ("Vehicles other than railway or tramway rolling stock, and parts and accessories thereof"), which includes heading 8703 passenger cars. This confirms the chapter-level scope of the Regulation for passenger cars; it does not replace exact classification or the live tariff check. The exact CN/TARIC code, origin, import date and any currently applicable/suspended measure must still be checked in TARIC/ISZTAR4 before the engine applies a rate.
+
+The Commission's Article 59a Q&A (updated 16 October 2026) adds an important operational condition: the declarant must hold sufficient evidence of US origin and direct transport when lodging the declaration. A "Made in US" statement, invoice statement, Certificate of Origin or decoded VIN is not sufficient on its own. Store origin evidence separately from bill-of-lading / transit evidence. If transported through a third country, evidence must show customs supervision and no disallowed alteration.
 
 **Implementation rule:**
 - Never apply 0% merely because the vehicle was bought, listed, exported or shipped from the US.
@@ -214,10 +216,11 @@ Research snapshot date: 2026-11-24. Sources should be revalidated before every p
 9. Gov.pl — register a vehicle, document and inspection guidance: https://www.gov.pl/web/gov/zarejestruj-pojazd
 10. Act on vehicle type approval systems and equipment, Dz.U. 2023 poz. 919: https://eli.gov.pl/api/acts/DU/2023/919/text.html
 11. Transport Technical Supervision (TDT) — individual vehicle approval: https://www.tdt.gov.pl/zalatw-sprawe/homologacja-pojazdow/swiadectwo-krajowego-indywidualnego-dopuszczenia-pojazdu/
+12. European Commission, Q&A on Article 59a UCC-IA (revised 16 October 2026): https://taxation-customs.ec.europa.eu/document/download/e6ea53a6-3eb6-4a2a-a2df-0b4828ae1188_en?filename=Q%26A+-+UCC-IA+Article+59a+-+rev2.pdf
 
 ## 10. Open items before marking PL supported
 
-- Verify the exact Annex I CN code coverage for the target vehicle and the current live TARIC/ISZTAR4 measure on the actual customs date.
+- Verify the current live TARIC/ISZTAR4 measure for the exact CN/TARIC code, origin and actual customs date, including any suspension or safeguard action.
 - Obtain authoritative, operational guidance for the evidence required to claim US origin under Regulation 2026/1455 and the applicable non-preferential origin rules; do not accept VIN alone as conclusive proof.
 - Confirm the current 23% import VAT rate and all current statutory amendments on the release date.
 - Validate the current customs exchange-rate publication endpoint and precise effective-date logic.
