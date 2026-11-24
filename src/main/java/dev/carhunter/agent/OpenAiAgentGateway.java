@@ -8,7 +8,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
-import java.util.List;
 import java.util.Map;
 
 @Component
@@ -18,17 +17,13 @@ public class OpenAiAgentGateway implements AgentGateway {
     private final String model;
     private final int maxOutputTokens;
 
-    public OpenAiAgentGateway(
-            RestClient.Builder builder,
-            ObjectMapper mapper,
+    public OpenAiAgentGateway(RestClient.Builder builder, ObjectMapper mapper,
             @Value("${carhunter.openai.base-url}") String baseUrl,
             @Value("${carhunter.openai.api-key:}") String apiKey,
             @Value("${carhunter.openai.model}") String model,
             @Value("${carhunter.openai.max-output-tokens:2500}") int maxOutputTokens) {
         RestClient.Builder configured = builder.baseUrl(baseUrl);
-        if (apiKey != null && !apiKey.isBlank()) {
-            configured.defaultHeader("Authorization", "Bearer " + apiKey);
-        }
+        if (apiKey != null && !apiKey.isBlank()) configured.defaultHeader("Authorization", "Bearer " + apiKey);
         this.client = configured.build();
         this.mapper = mapper;
         this.model = model;
@@ -39,20 +34,14 @@ public class OpenAiAgentGateway implements AgentGateway {
     public String run(String role, String instructions, String context) {
         String input = "ROLE: " + role + "\n\nINSTRUCTIONS:\n" + instructions
                 + "\n\nINVESTIGATION CONTEXT:\n" + context;
-        Map<String, Object> body = Map.of(
-                "model", model,
-                "input", input,
-                "tools", List.of(Map.of("type", "web_search")),
-                "max_output_tokens", maxOutputTokens,
-                "store", false
-        );
+        // Web retrieval is performed by TavilySearchGateway; the Fly.io OpenAI Connector
+        // does not support forwarding the hosted web_search tool.
+        Map<String, Object> body = Map.of("model", model, "input", input,
+                "max_output_tokens", maxOutputTokens, "store", false);
         try {
-            String response = client.post()
-                    .uri("/v1/responses")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(body)
-                    .retrieve()
-                    .body(String.class);
+            String response = client.post().uri("/v1/responses")
+                    .contentType(MediaType.APPLICATION_JSON).body(body)
+                    .retrieve().body(String.class);
             return extractText(response);
         } catch (RestClientResponseException ex) {
             throw new IllegalStateException("OpenAI request failed (" + ex.getStatusCode()
