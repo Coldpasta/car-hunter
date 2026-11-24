@@ -28,7 +28,7 @@ Car Hunter is an AI-assisted US vehicle discovery and import due-diligence tool.
 - PR #4: US marketplace query planning and deterministic eligibility checks.
 - PR #5: seller-type normalization and VIN/canonical URL deduplication.
 - PR #6: independent public listing-page text verification. It uses HTTPS allowlisted hosts, does not follow redirects and confirms the seller quote appears in visible HTML. It does not prove legal title status.
-- PR #7 was an initial diagnostics/hardening attempt. Its conflict resolution was defective; do not merge its old branch.
+- PR #7 was an initial diagnostics/hardening attempt. Its conflict resolution was defective and the PR is closed; review replacement PR #8 instead.
 
 ## Current repair branch
 
@@ -51,7 +51,7 @@ Important implementation semantics:
 
 ## Current verification state
 
-The replacement branch has been pushed, but its CI status must be checked before merging. Do not claim it is green until the latest workflow run for the branch HEAD completes successfully. Run `mvn --batch-mode --no-transfer-progress clean verify` locally/CI as the acceptance gate.
+Replacement PR: [#8](https://github.com/Coldpasta/car-hunter/pull/8). Its CI status must be checked before merging. Do not claim it is green until the latest workflow run for the branch HEAD completes successfully. Run `mvn --batch-mode --no-transfer-progress clean verify` locally/CI as the acceptance gate.
 
 The prior broken PR #7 branch and its CI failure are not evidence about the replacement branch.
 
@@ -74,7 +74,7 @@ Suggested order:
 Start by checking:
 - the latest commit on `fix/v0.2-scout-diagnostics-clean`;
 - its latest GitHub Actions CI run and job logs;
-- whether a replacement PR has been opened and whether it is mergeable.
+- PR #8 CI result and mergeability.
 
 Review the three repaired classes first:
 - `src/main/java/dev/carhunter/service/ListingPageVerifier.java`
