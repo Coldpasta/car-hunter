@@ -148,6 +148,10 @@ Run the full Maven verification suite:
 
 GitHub Actions runs the test workflow for pushes and pull requests. Deterministic validation and calculation logic should be tested independently of live search or LLM calls.
 
+## Hackathon demo disclaimer
+
+**CAR HUNTER is a hackathon prototype. Its Poland import calculator provides illustrative scenario estimates only — not a customs quotation, tax advice or guaranteed landed cost.** Duty, excise, VAT and USD/PLN rates are entered by the user as assumptions; the demo does not fetch or verify live tariff/tax rates, determine vehicle origin or classification, or apply the complete statutory customs valuation and tax rules. Actual costs depend on the vehicle, its origin and classification, customs valuation, applicable rules and shipment details. Verify all figures with the relevant authorities and qualified import/customs professionals before making a purchase.
+
 ## Important limitations
 
 - Search coverage and listing-page access depend on third-party sites and publicly accessible content.
