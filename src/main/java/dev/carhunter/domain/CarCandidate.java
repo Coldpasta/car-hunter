@@ -8,11 +8,15 @@ public record CarCandidate(
         String title,
         String sourceUrl,
         String country,
+        String state,
         BigDecimal price,
         String currency,
         Integer year,
         Integer mileageKm,
         String fuel,
         String transmission,
-        String sellerClaims
+        String sellerClaims,
+        String titleStatus,
+        String titleEvidenceQuote,
+        String titleEvidenceUrl
 ) {}
