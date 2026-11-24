@@ -2,8 +2,10 @@ package dev.carhunter.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.carhunter.agent.AgentGateway;
+import dev.carhunter.agent.TavilySearchGateway;
 import dev.carhunter.domain.InvestigationReport;
 import dev.carhunter.domain.SearchRequest;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -15,11 +17,27 @@ import static org.mockito.Mockito.*;
 
 class CarHunterServiceTest {
     private final AgentGateway agents = mock(AgentGateway.class);
+    private final TavilySearchGateway search = mock(TavilySearchGateway.class);
     private final UsListingQueryPlanner planner = new UsListingQueryPlanner();
     private final ListingEligibility eligibility = new ListingEligibility();
     private final ListingDeduplicator deduplicator = new ListingDeduplicator();
     private final ListingPageVerifier pageVerifier = mock(ListingPageVerifier.class);
-    private final CarHunterService service = new CarHunterService(agents, new ObjectMapper(), planner, eligibility, deduplicator, pageVerifier);
+    private final CarHunterService service = new CarHunterService(
+            agents, search, new ObjectMapper(), planner, eligibility, deduplicator, pageVerifier);
+
+    @BeforeEach
+    void configureTavilyResults() {
+        when(search.search(anyString(), anyInt())).thenReturn(tavilyListingResults());
+    }
+
+    private String tavilyListingResults() {
+        return """
+                {"results":[
+                  {"url":"https://www.cars.com/vehicledetail/123","title":"2022 Toyota RAV4 Hybrid for sale",
+                   "content":"Dealer listing. Clean title. 2022 Toyota RAV4 Hybrid, 50000 miles, $24000."}
+                ]}
+                """;
+    }
 
     private void allowPageEvidence() {
         when(pageVerifier.verify(anyString(), anyString())).thenReturn(
@@ -58,12 +76,16 @@ class CarHunterServiceTest {
         assertEquals("https://www.cars.com/vehicledetail/123", report.candidates().getFirst().sourceUrl());
         assertEquals(80467, report.candidates().getFirst().mileageKm());
         assertTrue(report.recommendation().contains("inspect"));
-        assertEquals(8, report.activity().size());
+        assertTrue(report.activity().stream().anyMatch(item -> item.contains("TAVILY")));
+        assertTrue(report.activity().stream().anyMatch(item -> item.contains("SCOUT")));
         assertEquals(1, report.scoutDiagnostics().discoveredCount());
         assertEquals(1, report.scoutDiagnostics().eligibleCount());
         assertEquals(List.of("cars.com", "autotrader.com", "cargurus.com"), report.scoutDiagnostics().searchedSources());
         assertTrue(report.scoutDiagnostics().rejections().isEmpty());
-        verify(agents, times(1)).run(eq("SCOUT"), anyString(), anyString());
+        verify(search, times(4)).search(anyString(), anyInt());
+        verify(agents, times(1)).run(eq("SCOUT"), anyString(),
+                argThat(context -> context.contains("Tavily listing search results")
+                        && context.contains("https://www.cars.com/vehicledetail/123")));
         verify(agents, times(1)).run(eq("INVESTIGATOR"), anyString(), anyString());
         verify(agents, times(1)).run(eq("SKEPTIC"), anyString(), anyString());
         verify(agents, times(1)).run(eq("DECISION"), anyString(), anyString());
@@ -121,6 +143,40 @@ class CarHunterServiceTest {
         when(agents.run(eq("SCOUT"), anyString(), anyString())).thenReturn(userInfo);
         IllegalStateException userInfoError = assertThrows(IllegalStateException.class, () -> service.investigate(criteria()));
         assertTrue(userInfoError.getMessage().contains("INVALID_SOURCE_URL"));
+    }
+
+    @Test
+    void rejectsScoutUrlsNotPresentInTavilyResults() {
+        String inventedUrl = validScoutResult()
+                .replace("https://www.cars.com/vehicledetail/123",
+                        "https://www.cars.com/vehicledetail/not-returned-by-tavily");
+        when(agents.run(eq("SCOUT"), anyString(), anyString())).thenReturn(inventedUrl);
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> service.investigate(criteria()));
+
+        assertTrue(error.getMessage().contains("URL_NOT_IN_TAVILY_RESULTS"));
+        verify(agents, never()).run(eq("INVESTIGATOR"), anyString(), anyString());
+    }
+
+    @Test
+    void skepticCanTriggerOnlyOneTavilyFollowUpSearch() {
+        allowPageEvidence();
+        when(agents.run(eq("SCOUT"), anyString(), anyString())).thenReturn(validScoutResult());
+        when(agents.run(eq("INVESTIGATOR"), anyString(), anyString()))
+                .thenReturn("Initial reliability research.", "Follow-up research.");
+        when(agents.run(eq("SKEPTIC"), anyString(), anyString()))
+                .thenReturn("NEEDS_MORE_EVIDENCE\nCheck recall information.",
+                        "SUFFICIENT\nVehicle-specific history remains unverified.");
+        when(agents.run(eq("DECISION"), anyString(), anyString()))
+                .thenReturn("Inspect the vehicle before purchase.");
+
+        InvestigationReport report = service.investigate(criteria());
+
+        assertTrue(report.investigation().contains("FOLLOW-UP RESEARCH"));
+        verify(search, times(5)).search(anyString(), anyInt());
+        verify(agents, times(2)).run(eq("INVESTIGATOR"), anyString(), anyString());
+        verify(agents, times(2)).run(eq("SKEPTIC"), anyString(), anyString());
     }
 
     @Test
