@@ -1,7 +1,7 @@
 # CAR HUNTER — v0.2 delivery status
 
 Updated: 2026-11-24  
-Baseline: `main` at `8822a0f` (PR #6)
+Baseline: `main` at `c9fccef` (PR #10)
 
 This file tracks implementation evidence, not aspirational scope. A task is marked **partial** when the core structure exists but its acceptance criteria are not yet met end to end.
 
@@ -10,10 +10,10 @@ This file tracks implementation evidence, not aspirational scope. A task is mark
 | Increment | Status | Evidence / remaining work |
 |---|---|---|
 | A — Contract | **Mostly complete** | PR #3 introduced the v0.2 request/domain contracts and destination-profile interface/registry. Destination rules and full estimate are not implemented. |
-| B — Discovery | **In progress** | PR #4 added US marketplace query planning and deterministic US/title/seller/budget validation. PR #5 added seller filtering and VIN/URL deduplication. PR #6 added independent listing-page text confirmation. PR #8 adds structured rejection diagnostics and safer bounded HTML retrieval. |
-| C — Import economics | **Not started end to end** | Destination profile architecture exists, but no researched country profile plus deterministic landed-cost calculator is available yet. |
+| B — Discovery | **In progress** | PR #4 added US marketplace query planning and deterministic eligibility; PR #5 added seller filtering and VIN/URL deduplication; PR #6 added independent listing-page text confirmation; PR #8 added structured rejection diagnostics and bounded HTML retrieval. |
+| C — Import economics | **In progress — foundations only** | PR #9 added the Poland research draft (not production-supported). PR #10 added deterministic low/expected/high scenario aggregation. PR #11 adds sourced, purpose-specific, effective-dated FX rate records and lookup. No end-to-end tax or landed-cost calculation exists yet. |
 | D — Investigation | **Partial** | Investigator, Skeptic and Decision roles exist with bounded follow-up. Vehicle-specific history, recall and structured evidence provenance are not implemented as deterministic product features. |
-| E — Productization | **Early / partial** | Basic UI and API exist. Full landed-cost report, destination support states, observability, documentation and release hardening remain. |
+| E — Productization | **Early / partial** | Basic UI and API exist. Full landed-cost report, destination support states, observability and release hardening remain. README was refreshed in PR #10. |
 
 ## Backlog status by task
 
@@ -28,17 +28,17 @@ This file tracks implementation evidence, not aspirational scope. A task is mark
 | CH-207 Recalls / reliability | **Partial** | Agent prompt exists; no structured source-backed result contract |
 | CH-208 Price context | **Partial** | Agent prompt exists; no deterministic comparable-listing dataset |
 | CH-209 Destination profile architecture | **Partial** | Interface/registry/unsupported destination handling introduced in PR #3 |
-| CH-210 First destination profile research | **Not started** | Requires official source research and documented ruleset |
+| CH-210 First destination profile research | **Partial** | PR #9 documents Poland rules and unresolved legal/tariff/origin/compliance gates; PL is not production-supported |
 | CH-211 Shipping and port-cost assumptions | **Not started** | No sourced shipping cost model |
-| CH-212 Landed-cost calculator and FX | **Not started** | No deterministic end-to-end calculator or sourced FX integration |
+| CH-212 Landed-cost calculator and FX | **Partial — foundations** | PR #10 adds scenario aggregation; PR #11 adds FX records and exact-purpose/date lookup. Tax bases, legal formulas, FX provider ingestion, statutory rounding and end-to-end composition remain |
 | CH-213 Scout contract and validation | **Partial** | US retail scope, marketplace allowlist, title evidence and hard filters; PR #8 adds structured diagnostics |
 | CH-214 Import Analyst | **Not started** | No implemented role connected to a deterministic calculator |
 | CH-215 Investigation agent contracts | **Partial** | Prompts and bounded skeptic retry exist; structured evidence contracts remain |
 | CH-216 Search form | **Partial** | US source and destination selection exist; supported-country UX needs to reflect actual profiles |
 | CH-217 Landed-cost report | **Not started** | No itemized landed-cost output |
-| CH-218 Deterministic tests | **Partial** | CI runs `mvn clean verify`; tests cover core filters, title gate, deduplication and listing-page verification |
-| CH-219 Provenance / observability | **Partial** | Activity log exists; PR #8 adds in-response Scout rejection/source diagnostics, but durable provenance remains |
-| CH-220 README / deployment docs | **Partial** | Existing README/deployment setup predates complete v0.2 behavior |
+| CH-218 Deterministic tests | **Partial** | CI runs `mvn clean verify`; tests cover core filters, title gate, deduplication, listing-page verification, scenario aggregation and FX rate selection |
+| CH-219 Provenance / observability | **Partial** | Activity log and Scout diagnostics exist; durable end-to-end evidence provenance remains |
+| CH-220 README / deployment docs | **Partial** | README refreshed in PR #10; deployment and end-to-end behavior still need final documentation |
 
 ## Merged implementation
 
@@ -47,19 +47,21 @@ This file tracks implementation evidence, not aspirational scope. A task is mark
 - PR #4 — US Scout query planning and deterministic listing eligibility.
 - PR #5 — seller-type normalization and listing deduplication.
 - PR #6 — independent listing-page text verification.
+- PR #8 — Scout diagnostics and listing verifier hardening.
+- PR #9 — Poland destination-profile research draft (not production-supported).
+- PR #10 — deterministic landed-cost scenario foundations and README refresh.
 
 ## Current work
 
-- PR #7 (closed; superseded) — Scout diagnostics and listing verifier hardening. Its conflict resolution introduced duplicate old/new verifier code and incomplete Scout payload wiring. Do not merge that branch.
-- PR #8: `fix/v0.2-scout-diagnostics-clean`. It is based directly on current `main` and contains the corrected implementation.
+- PR #11: `feat/explicit-fx-rate-records` — explicit purpose-specific FX rate records, effective-date lookup and deterministic conversion without implicit rounding. Check the latest branch-head CI and review before merging.
 
 ## Recommended next steps
 
-1. Verify replacement-branch CI and review the corrected Scout diagnostics/page verifier.
-2. Merge the replacement PR after CI is green.
-3. Research and document the first destination profile using official sources; do not select or mark a country supported until all required components have reliable rules.
-4. Implement deterministic landed-cost calculations, FX date/source and uncertainty scenarios.
-5. Connect Import Analyst to calculator output; LLM explains calculations but cannot author totals.
+1. Complete review and CI for PR #11; merge only when the latest head is green.
+2. Implement the Poland profile's vehicle classification, origin evidence and date-specific tariff lookup. Keep unsupported/uncertain cases incomplete.
+3. Implement the statutory customs, excise and import VAT tax-base sequence with tax-specific FX dates, rounding and calculation traces.
+4. Add sourced shipping, port, broker and compliance ranges.
+5. Connect Import Analyst only to deterministic calculator output; the LLM may explain results but must not author numeric rates or totals.
 6. Add structured vehicle-history/recall evidence and improve final report/UI.
 7. Complete end-to-end acceptance tests, provenance/observability and release documentation.
 
