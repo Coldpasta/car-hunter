@@ -103,6 +103,8 @@ class TariffMeasureBookTest {
                 LocalDate.parse("2026-07-01"), null, true));
         assertThrows(IllegalArgumentException.class, () -> measure("8703239000", "US", "101",
                 LocalDate.parse("2026-07-01"), null, true));
+        assertThrows(IllegalArgumentException.class, () -> measure("8703239000", "US", "0.00",
+                LocalDate.parse("2026-07-01"), null, false));
         assertThrows(IllegalArgumentException.class, () -> measure("8703239000", "US", "0",
                 LocalDate.parse("2026-11-30"), LocalDate.parse("2026-11-01"), true));
     }
