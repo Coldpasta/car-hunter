@@ -77,6 +77,14 @@ class CarHunterServiceTest {
         assertThrows(IllegalStateException.class, () -> service.investigate(criteria()));
     }
 
+
+    @Test
+    void rejectsCandidatesOutsideBudgetAndMileageConstraints() {
+        String overBudget = validScoutResult().replace("\"price\":24000", "\"price\":26000");
+        when(agents.run(eq("SCOUT"), anyString(), anyString())).thenReturn(overBudget);
+        assertThrows(IllegalStateException.class, () -> service.investigate(criteria()));
+    }
+
     @Test
     void plansMarketplaceSpecificUsSearches() {
         List<String> queries = planner.plan(criteria());
