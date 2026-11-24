@@ -78,7 +78,7 @@ public class CarHunterService {
         String scoutOutput = agents.run("SCOUT", SCOUT,
                 "Buyer criteria (JSON):\n" + criteria + "\n\nExecute these marketplace-specific searches:\n- "
                         + String.join("\n- ", queries));
-        List<CarCandidate> candidates = parseCandidates(scoutOutput, request.candidateLimit());
+        List<CarCandidate> candidates = parseCandidates(scoutOutput, request);
         if (candidates.isEmpty()) {
             throw new IllegalStateException("Scout found no listings that meet the US retail and evidenced Clean Title requirements. Try widening the vehicle criteria or budget.");
         }
@@ -119,7 +119,7 @@ public class CarHunterService {
                 candidates, research, skeptic, recommendation, List.copyOf(activity));
     }
 
-    private List<CarCandidate> parseCandidates(String raw, int limit) {
+    private List<CarCandidate> parseCandidates(String raw, SearchRequest request) {
         try {
             String json = raw.trim();
             int start = json.indexOf('{');
@@ -140,18 +140,36 @@ public class CarHunterService {
                 if (titleEligibility.classifyTitleClaim(quote, true) != TitleStatus.CLEAN_EVIDENCED) continue;
                 String currency = text(node, "currency");
                 if (!"USD".equalsIgnoreCase(currency)) continue;
+                java.math.BigDecimal price = decimal(node, "price");
+                Integer year = integer(node, "year");
                 Integer miles = integer(node, "mileageMiles");
+                String makeModel = text(node, "makeModel");
+                if (!matchesBuyerConstraints(request, makeModel, price, year, miles)) continue;
                 candidates.add(new CarCandidate(
-                        text(node, "id"), text(node, "makeModel"), text(node, "title"), sourceUrl,
-                        "US", state.toUpperCase(Locale.ROOT), decimal(node, "price"), "USD",
-                        integer(node, "year"), titleEligibility.mileageMilesToKm(miles), text(node, "fuel"),
+                        text(node, "id"), makeModel, text(node, "title"), sourceUrl,
+                        "US", state.toUpperCase(Locale.ROOT), price, "USD",
+                        year, titleEligibility.mileageMilesToKm(miles), text(node, "fuel"),
                         text(node, "transmission"), text(node, "sellerClaims"), "CLEAN", quote, evidenceUrl));
-                if (candidates.size() >= limit) break;
+                if (candidates.size() >= request.candidateLimit()) break;
             }
             return List.copyOf(candidates);
         } catch (Exception ex) {
             throw new IllegalStateException("Could not parse Scout results: " + ex.getMessage(), ex);
         }
+    }
+
+    private boolean matchesBuyerConstraints(SearchRequest request, String makeModel,
+                                             java.math.BigDecimal price, Integer year, Integer mileageMiles) {
+        if (price == null || price.signum() <= 0 || price.compareTo(request.budgetAmount()) > 0) return false;
+        if (request.minYear() != null && (year == null || year < request.minYear())) return false;
+        if (request.maxYear() != null && (year == null || year > request.maxYear())) return false;
+        if (request.maxMileageMiles() != null
+                && (mileageMiles == null || mileageMiles < 0 || mileageMiles > request.maxMileageMiles())) return false;
+        if (request.make() != null && !request.make().isBlank()
+                && (makeModel == null || !makeModel.toLowerCase(Locale.ROOT).contains(request.make().toLowerCase(Locale.ROOT)))) return false;
+        if (request.model() != null && !request.model().isBlank()
+                && (makeModel == null || !makeModel.toLowerCase(Locale.ROOT).contains(request.model().toLowerCase(Locale.ROOT)))) return false;
+        return true;
     }
 
     private boolean isAllowedListingUrl(String value) {
