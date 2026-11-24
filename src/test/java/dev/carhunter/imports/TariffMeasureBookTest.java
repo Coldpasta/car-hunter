@@ -44,7 +44,7 @@ class TariffMeasureBookTest {
         assertEquals(TariffResolutionStatus.ORIGIN_UNVERIFIED,
                 book.resolve(List.of(measure), classification("8703239000"),
                         new OriginAssessment("US", OriginAssessmentStatus.UNVERIFIED,
-                                DirectTransportStatus.DIRECT_US_TO_EU_PROVEN, List.of(), null),
+                                DirectTransportStatus.UNVERIFIED, List.of(), List.of(), null),
                         IMPORT_DATE).status());
     }
 
@@ -118,7 +118,19 @@ class TariffMeasureBookTest {
                 List.of(evidence("classification")), null));
         assertThrows(IllegalArgumentException.class, () -> new OriginAssessment(
                 "US", OriginAssessmentStatus.CONFIRMED, DirectTransportStatus.DIRECT_US_TO_EU_PROVEN,
-                List.of(), REVIEWED_AT));
+                List.of(), List.of(), REVIEWED_AT));
+    }
+
+    @Test
+    void vinAloneCannotConfirmOriginAndProvenTransportRequiresItsOwnEvidence() {
+        var vinOnly = new EvidenceReference("VIN decoded to US plant", "https://example.com/vin",
+                "vin-decode", REVIEWED_AT, "VIN decoder output");
+        assertThrows(IllegalArgumentException.class, () -> new OriginAssessment(
+                "US", OriginAssessmentStatus.CONFIRMED, DirectTransportStatus.DIRECT_US_TO_EU_PROVEN,
+                List.of(vinOnly), List.of(evidence("bill of lading")), REVIEWED_AT));
+        assertThrows(IllegalArgumentException.class, () -> new OriginAssessment(
+                "US", OriginAssessmentStatus.CONFIRMED, DirectTransportStatus.DIRECT_US_TO_EU_PROVEN,
+                List.of(evidence("manufacturer production record")), List.of(), REVIEWED_AT));
     }
 
     @Test
@@ -135,7 +147,9 @@ class TariffMeasureBookTest {
 
     private OriginAssessment origin(String country, DirectTransportStatus transportStatus) {
         return new OriginAssessment(country, OriginAssessmentStatus.CONFIRMED, transportStatus,
-                List.of(evidence("manufacturer production record")), REVIEWED_AT);
+                List.of(evidence("manufacturer production record")),
+                transportStatus == DirectTransportStatus.UNVERIFIED ? List.of()
+                        : List.of(evidence("bill of lading")), REVIEWED_AT);
     }
 
     private TariffMeasureRecord measure(String code, String country, String rate,
