@@ -104,7 +104,7 @@ public class ListingPageVerifier {
 
     private String decodeBasicEntities(String value) {
         return value.replace("&nbsp;", " ").replace("&#160;", " ")
-                .replace("&amp;", "&").replace("&quot;", "\\"")
+                .replace("&amp;", "&").replace("&quot;", "\"")
                 .replace("&#39;", "'").replace("&apos;", "'");
     }
 
