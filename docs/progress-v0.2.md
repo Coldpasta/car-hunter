@@ -1,7 +1,7 @@
 # CAR HUNTER — v0.2 delivery status
 
 Updated: 2026-11-24  
-Baseline: `main` at `87065ea` (PR #11)
+Baseline: `main` at `44ed1ca` (PR #12)
 
 This file tracks implementation evidence, not aspirational scope. A task is marked **partial** when the core structure exists but its acceptance criteria are not yet met end to end.
 
@@ -70,3 +70,16 @@ This file tracks implementation evidence, not aspirational scope. A task is mark
 ## Important product limitation
 
 The current application is **not yet an end-to-end import-cost advisor**. It is an early US listing discovery and AI-assisted due-diligence prototype. It cannot yet produce a reliable, fully itemized landed-cost estimate for any destination country.
+
+
+## Hackathon MVP increment (in progress)
+
+Branch: `feature/hackathon-mvp-import-estimator`
+
+- Added a separate `POST /api/demo/import-estimates` endpoint for an illustrative Poland scenario.
+- Added a simple UI form with explicit USD/PLN and duty, excise and VAT assumptions.
+- The estimator uses deterministic BigDecimal arithmetic and returns a line-item PLN breakdown, formulas, assumptions and limitations.
+- The endpoint is intentionally not registered as a production `DestinationProfile`; it does not resolve live tariff measures, origin, CN/TARIC classification, statutory tax bases or tax-specific FX.
+- Added estimator unit tests and `docs/hackathon-mvp.md` with a demo script and guardrails.
+
+This increment is for presentation only. It must not be described as a production-supported Poland import calculator.
