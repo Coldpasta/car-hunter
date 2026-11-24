@@ -18,5 +18,7 @@ public record CarCandidate(
         String sellerClaims,
         String titleStatus,
         String titleEvidenceQuote,
-        String titleEvidenceUrl
+        String titleEvidenceUrl,
+        String sellerType,
+        String vin
 ) {}

@@ -24,13 +24,14 @@ public class CarHunterService {
             Search ONLY the United States. Find ordinary dealer/private-party retail listings, never auctions.
             The source must be a direct vehicle detail page on Cars.com, Autotrader.com or CarGurus.com.
             Return ONLY valid JSON, no markdown, in this exact shape:
-            {"candidates":[{"id":"stable-short-id","makeModel":"...","title":"...","sourceUrl":"https://...","country":"US","state":"CA","price":12345,"currency":"USD","year":2022,"mileageMiles":50000,"fuel":"hybrid","transmission":"automatic","sellerClaims":"...","titleStatus":"CLEAN","titleEvidenceQuote":"exact short quote from the listing explicitly saying clean title or clear title","titleEvidenceUrl":"https://same-listing-url"}]}
+            {"candidates":[{"id":"stable-short-id","makeModel":"...","title":"...","sourceUrl":"https://...","country":"US","state":"CA","price":12345,"currency":"USD","year":2022,"mileageMiles":50000,"fuel":"hybrid","transmission":"automatic","sellerClaims":"...","titleStatus":"CLEAN","titleEvidenceQuote":"exact short quote from the listing explicitly saying clean title or clear title","titleEvidenceUrl":"https://same-listing-url","sellerType":"dealer","vin":"17-character-VIN-or-null"}]}
             HARD RULES:
             - Only return a vehicle when the listing itself explicitly states Clean Title or Clear Title.
             - titleEvidenceQuote must be a short verbatim quote from the listing. Do not infer title status from absence of salvage wording.
             - titleEvidenceUrl must be the same direct listing URL as sourceUrl.
             - Exclude salvage, rebuilt, reconstructed, flood, junk, non-repairable, parts-only, auction, Copart and IAAI listings.
             - country must be US and state must be a valid US state abbreviation.
+            - sellerType must be dealer or private. Include VIN only when visible in reliable listing details.
             - Never invent a listing, URL, quote, price, year, mileage or other field. Use null for unknown fields.
             - Return only the requested number of distinct vehicles. If there are not enough eligible results, return fewer. If none qualify, return {"candidates":[]}.
             """;
@@ -60,13 +61,15 @@ public class CarHunterService {
     private final ObjectMapper mapper;
     private final UsListingQueryPlanner queryPlanner;
     private final ListingEligibility titleEligibility;
+    private final ListingDeduplicator deduplicator;
 
     public CarHunterService(AgentGateway agents, ObjectMapper mapper,
-                            UsListingQueryPlanner queryPlanner, ListingEligibility titleEligibility) {
+                            UsListingQueryPlanner queryPlanner, ListingEligibility titleEligibility, ListingDeduplicator deduplicator) {
         this.agents = agents;
         this.mapper = mapper;
         this.queryPlanner = queryPlanner;
         this.titleEligibility = titleEligibility;
+        this.deduplicator = deduplicator;
     }
 
     public InvestigationReport investigate(SearchRequest request) {
@@ -78,7 +81,8 @@ public class CarHunterService {
         String scoutOutput = agents.run("SCOUT", SCOUT,
                 "Buyer criteria (JSON):\n" + criteria + "\n\nExecute these marketplace-specific searches:\n- "
                         + String.join("\n- ", queries));
-        List<CarCandidate> candidates = parseCandidates(scoutOutput, request);
+        List<CarCandidate> candidates = deduplicator.deduplicate(parseCandidates(scoutOutput, request))
+                .stream().limit(request.candidateLimit()).toList();
         if (candidates.isEmpty()) {
             throw new IllegalStateException("Scout found no listings that meet the US retail and evidenced Clean Title requirements. Try widening the vehicle criteria or budget.");
         }
@@ -138,6 +142,8 @@ public class CarHunterService {
                 if (!"US".equalsIgnoreCase(country) || state == null || !US_STATES.contains(state.toUpperCase(Locale.ROOT))) continue;
                 if (!"CLEAN".equalsIgnoreCase(titleStatus) || quote == null) continue;
                 if (titleEligibility.classifyTitleClaim(quote, true) != TitleStatus.CLEAN_EVIDENCED) continue;
+                String sellerType = normalizeSellerType(text(node, "sellerType"));
+                if (sellerType == null || !matchesSellerType(request, sellerType)) continue;
                 String currency = text(node, "currency");
                 if (!"USD".equalsIgnoreCase(currency)) continue;
                 java.math.BigDecimal price = decimal(node, "price");
@@ -149,13 +155,33 @@ public class CarHunterService {
                         text(node, "id"), makeModel, text(node, "title"), sourceUrl,
                         "US", state.toUpperCase(Locale.ROOT), price, "USD",
                         year, titleEligibility.mileageMilesToKm(miles), text(node, "fuel"),
-                        text(node, "transmission"), text(node, "sellerClaims"), "CLEAN", quote, evidenceUrl));
-                if (candidates.size() >= request.candidateLimit()) break;
+                        text(node, "transmission"), text(node, "sellerClaims"), "CLEAN", quote, evidenceUrl,
+                        sellerType, normalizeVin(text(node, "vin"))));
             }
             return List.copyOf(candidates);
         } catch (Exception ex) {
             throw new IllegalStateException("Could not parse Scout results: " + ex.getMessage(), ex);
         }
+    }
+
+    private String normalizeSellerType(String value) {
+        if (value == null) return null;
+        return switch (value.trim().toLowerCase(Locale.ROOT)) {
+            case "dealer" -> "dealer";
+            case "private", "private party", "private-party" -> "private";
+            default -> null;
+        };
+    }
+
+    private boolean matchesSellerType(SearchRequest request, String sellerType) {
+        return request.sellerTypes() == null || request.sellerTypes().isEmpty()
+                || request.sellerTypes().stream().anyMatch(type -> type.equalsIgnoreCase(sellerType));
+    }
+
+    private String normalizeVin(String value) {
+        if (value == null) return null;
+        String vin = value.trim().toUpperCase(Locale.ROOT);
+        return vin.matches("[A-HJ-NPR-Z0-9]{17}") ? vin : null;
     }
 
     private boolean matchesBuyerConstraints(SearchRequest request, String makeModel,

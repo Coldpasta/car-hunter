@@ -17,7 +17,8 @@ class CarHunterServiceTest {
     private final AgentGateway agents = mock(AgentGateway.class);
     private final UsListingQueryPlanner planner = new UsListingQueryPlanner();
     private final ListingEligibility eligibility = new ListingEligibility();
-    private final CarHunterService service = new CarHunterService(agents, new ObjectMapper(), planner, eligibility);
+    private final ListingDeduplicator deduplicator = new ListingDeduplicator();
+    private final CarHunterService service = new CarHunterService(agents, new ObjectMapper(), planner, eligibility, deduplicator);
 
     private SearchRequest criteria() {
         return new SearchRequest("US", "PL", new BigDecimal("25000"), "USD",
@@ -31,7 +32,8 @@ class CarHunterServiceTest {
                 "sourceUrl":"https://www.cars.com/vehicledetail/123","country":"US","state":"CA","price":24000,
                 "currency":"USD","year":2022,"mileageMiles":50000,"fuel":"hybrid","transmission":"automatic",
                 "sellerClaims":"Dealer listing","titleStatus":"CLEAN",
-                "titleEvidenceQuote":"Clean title","titleEvidenceUrl":"https://www.cars.com/vehicledetail/123"}]}
+                "titleEvidenceQuote":"Clean title","titleEvidenceUrl":"https://www.cars.com/vehicledetail/123",
+                "sellerType":"dealer","vin":"1HGCM82633A004352"}]}
                 """;
     }
 
@@ -83,6 +85,17 @@ class CarHunterServiceTest {
         String overBudget = validScoutResult().replace("\"price\":24000", "\"price\":26000");
         when(agents.run(eq("SCOUT"), anyString(), anyString())).thenReturn(overBudget);
         assertThrows(IllegalStateException.class, () -> service.investigate(criteria()));
+    }
+
+
+    @Test
+    void rejectsSellerTypeOutsideRequestedFilters() {
+        String privateSeller = validScoutResult().replace("\"dealer\"", "\"private\"");
+        when(agents.run(eq("SCOUT"), anyString(), anyString())).thenReturn(privateSeller);
+        SearchRequest dealerOnly = new SearchRequest("US", "PL", new BigDecimal("25000"), "USD",
+                "Toyota", "RAV4", "SUV", List.of("hybrid"), "automatic",
+                2021, 2025, 90000, List.of("dealer"), "CA", null, 5);
+        assertThrows(IllegalStateException.class, () -> service.investigate(dealerOnly));
     }
 
     @Test
