@@ -25,6 +25,8 @@ public class CarHunterService {
             The source must be a direct vehicle detail page on Cars.com, Autotrader.com or CarGurus.com.
             Return ONLY valid JSON, no markdown, in this exact shape:
             {"candidates":[{"id":"stable-short-id","makeModel":"...","title":"...","sourceUrl":"https://...","country":"US","state":"CA","price":12345,"currency":"USD","year":2022,"mileageMiles":50000,"fuel":"hybrid","transmission":"automatic","sellerClaims":"...","titleStatus":"CLEAN","titleEvidenceQuote":"exact short quote from the listing explicitly saying clean title or clear title","titleEvidenceUrl":"https://same-listing-url","sellerType":"dealer","vin":"17-character-VIN-or-null"}]}
+            Also return diagnostics in this JSON shape:
+            "diagnostics":{"searchedSources":["cars.com","autotrader.com","cargurus.com"],"notes":["source-specific coverage or access limitation"]}
             HARD RULES:
             - Only return a vehicle when the listing itself explicitly states Clean Title or Clear Title.
             - titleEvidenceQuote must be a short verbatim quote from the listing. Do not infer title status from absence of salvage wording.
@@ -34,6 +36,7 @@ public class CarHunterService {
             - sellerType must be dealer or private. Include VIN only when visible in reliable listing details.
             - Never invent a listing, URL, quote, price, year, mileage or other field. Use null for unknown fields.
             - Return only the requested number of distinct vehicles. If there are not enough eligible results, return fewer. If none qualify, return {"candidates":[]}.
+            - Diagnostics must report sources actually attempted and material access/coverage limitations. Do not claim a source was searched when it was not.
             """;
     private static final String INVESTIGATOR = """
             You are INVESTIGATOR, an automotive due-diligence researcher.
@@ -65,7 +68,8 @@ public class CarHunterService {
     private final ListingPageVerifier pageVerifier;
 
     public CarHunterService(AgentGateway agents, ObjectMapper mapper,
-                            UsListingQueryPlanner queryPlanner, ListingEligibility titleEligibility, ListingDeduplicator deduplicator, ListingPageVerifier pageVerifier) {
+                            UsListingQueryPlanner queryPlanner, ListingEligibility titleEligibility,
+                            ListingDeduplicator deduplicator, ListingPageVerifier pageVerifier) {
         this.agents = agents;
         this.mapper = mapper;
         this.queryPlanner = queryPlanner;
@@ -76,40 +80,50 @@ public class CarHunterService {
 
     public InvestigationReport investigate(SearchRequest request) {
         List<String> activity = new ArrayList<>();
+        List<InvestigationReport.Rejection> rejections = new ArrayList<>();
         String criteria = mapper.valueToTree(request).toPrettyString();
         List<String> queries = queryPlanner.plan(request);
+        List<String> searchedSources = queries.stream().map(this::sourceFromQuery).toList();
 
         activity.add("SCOUT: searching US retail marketplaces with three targeted queries");
         String scoutOutput = agents.run("SCOUT", SCOUT,
                 "Buyer criteria (JSON):\n" + criteria + "\n\nExecute these marketplace-specific searches:\n- "
                         + String.join("\n- ", queries));
-        List<CarCandidate> discovered = deduplicator.deduplicate(parseCandidates(scoutOutput, request))
-                .stream().limit(request.candidateLimit()).toList();
+        ScoutPayload payload = parseScoutPayload(scoutOutput);
+        List<CarCandidate> parsed = parseCandidates(payload.candidatesJson(), request, rejections);
+        List<CarCandidate> deduplicated = deduplicator.deduplicate(parsed);
+        for (CarCandidate candidate : parsed) {
+            if (!deduplicated.contains(candidate)) {
+                rejections.add(new InvestigationReport.Rejection(candidate.sourceUrl(), "DUPLICATE",
+                        "Duplicate listing removed by VIN or canonical URL."));
+            }
+        }
+        List<CarCandidate> discovered = deduplicated.stream().limit(request.candidateLimit()).toList();
         if (discovered.isEmpty()) {
-            throw new IllegalStateException("Scout found no listings that meet the US retail and evidenced Clean Title requirements. Try widening the vehicle criteria or budget.");
+            throw new IllegalStateException("Scout found no listings that meet the US retail and evidenced Clean Title requirements. Rejections: "
+                    + summarizeRejections(rejections));
         }
 
         List<CarCandidate> candidates = new ArrayList<>();
-        List<String> verificationFailures = new ArrayList<>();
         for (CarCandidate candidate : discovered) {
             ListingPageVerifier.Verification verification = pageVerifier.verify(
                     candidate.sourceUrl(), candidate.titleEvidenceQuote());
             if (verification.verified()) {
                 candidates.add(candidate);
             } else {
-                verificationFailures.add(candidate.sourceUrl() + " — " + verification.reason());
+                rejections.add(new InvestigationReport.Rejection(candidate.sourceUrl(), "PAGE_EVIDENCE_NOT_VERIFIED",
+                        verification.reason()));
             }
         }
         if (candidates.isEmpty()) {
-            throw new IllegalStateException("No listing passed independent page verification. " +
-                    String.join(" ", verificationFailures));
+            throw new IllegalStateException("No listing passed independent page verification. "
+                    + summarizeRejections(rejections));
         }
-        activity.add("SCOUT: independently fetched " + discovered.size() + " listing pages; "
-                + candidates.size() + " contained the exact seller title-evidence quote");
-        if (!verificationFailures.isEmpty()) {
-            activity.add("SCOUT: excluded " + verificationFailures.size()
-                    + " listings because page evidence could not be independently confirmed");
-        }
+        activity.add("SCOUT: " + parsed.size() + " candidates passed deterministic validation; "
+                + discovered.size() + " remained after deduplication/limit; " + candidates.size()
+                + " passed independent page-text verification");
+        if (!rejections.isEmpty()) activity.add("SCOUT: rejected " + rejections.size()
+                + " candidate(s); structured reasons are attached to report diagnostics");
 
         activity.add("INVESTIGATOR: researching reliability, recalls, title checks and price context");
         String research = agents.run("INVESTIGATOR", INVESTIGATOR,
@@ -142,49 +156,131 @@ public class CarHunterService {
                         + mapper.valueToTree(candidates).toPrettyString()
                         + "\n\nInvestigation:\n" + research + "\n\nSkeptic review:\n" + skeptic);
         activity.add("DECISION: evidence-backed report generated");
+        InvestigationReport.ScoutDiagnostics diagnostics = new InvestigationReport.ScoutDiagnostics(
+                parsed.size(), candidates.size(), searchedSources,
+                List.copyOf(rejections));
         return new InvestigationReport(UUID.randomUUID(), Instant.now(), request,
-                candidates, research, skeptic, recommendation, List.copyOf(activity));
+                candidates, research, skeptic, recommendation, List.copyOf(activity), diagnostics);
     }
 
-    private List<CarCandidate> parseCandidates(String raw, SearchRequest request) {
+    private ScoutPayload parseScoutPayload(String raw) {
         try {
             String json = raw.trim();
             int start = json.indexOf('{');
             int end = json.lastIndexOf('}');
             if (start < 0 || end <= start) throw new IllegalArgumentException("Scout did not return JSON.");
             JsonNode root = mapper.readTree(json.substring(start, end + 1));
+            return new ScoutPayload(root.path("candidates").toString(),
+                    parseSources(root.path("diagnostics").path("searchedSources")));
+        } catch (Exception ex) {
+            throw new IllegalStateException("Could not parse Scout results: " + ex.getMessage(), ex);
+        }
+    }
+
+    private List<String> parseSources(JsonNode node) {
+        if (!node.isArray()) return List.of();
+        List<String> valid = new ArrayList<>();
+        for (JsonNode value : node) {
+            String source = value.asText("").toLowerCase(Locale.ROOT);
+            if (Set.of("cars.com", "autotrader.com", "cargurus.com").contains(source) && !valid.contains(source)) {
+                valid.add(source);
+            }
+        }
+        return List.copyOf(valid);
+    }
+
+    private String sourceFromQuery(String query) {
+        if (query.contains("site:cars.com")) return "cars.com";
+        if (query.contains("site:autotrader.com")) return "autotrader.com";
+        if (query.contains("site:cargurus.com")) return "cargurus.com";
+        return "unknown";
+    }
+
+    private String summarizeRejections(List<InvestigationReport.Rejection> rejections) {
+        return rejections.stream().map(r -> r.reasonCode() + ": " + r.reason()).distinct()
+                .limit(8).reduce((a, b) -> a + "; " + b).orElse("No structured rejection details.");
+    }
+
+    private List<CarCandidate> parseCandidates(String candidatesJson, SearchRequest request,
+                                                List<InvestigationReport.Rejection> rejections) {
+        try {
+            JsonNode root = mapper.readTree(candidatesJson);
             List<CarCandidate> candidates = new ArrayList<>();
-            for (JsonNode node : root.path("candidates")) {
+            for (JsonNode node : root) {
                 String sourceUrl = text(node, "sourceUrl");
                 String evidenceUrl = text(node, "titleEvidenceUrl");
                 String quote = text(node, "titleEvidenceQuote");
                 String state = text(node, "state");
                 String country = text(node, "country");
                 String titleStatus = text(node, "titleStatus");
-                if (!isAllowedListingUrl(sourceUrl) || !sourceUrl.equals(evidenceUrl)) continue;
-                if (!"US".equalsIgnoreCase(country) || state == null || !US_STATES.contains(state.toUpperCase(Locale.ROOT))) continue;
-                if (!"CLEAN".equalsIgnoreCase(titleStatus) || quote == null) continue;
-                if (titleEligibility.classifyTitleClaim(quote, true) != TitleStatus.CLEAN_EVIDENCED) continue;
+                String rejection = validateCandidate(node, request, sourceUrl, evidenceUrl, quote, state, country, titleStatus);
+                if (rejection != null) {
+                    rejections.add(new InvestigationReport.Rejection(sourceUrl, rejection, rejectionMessage(rejection)));
+                    continue;
+                }
                 String sellerType = normalizeSellerType(text(node, "sellerType"));
-                if (sellerType == null || !matchesSellerType(request, sellerType)) continue;
                 String currency = text(node, "currency");
-                if (!"USD".equalsIgnoreCase(currency)) continue;
                 java.math.BigDecimal price = decimal(node, "price");
                 Integer year = integer(node, "year");
                 Integer miles = integer(node, "mileageMiles");
                 String makeModel = text(node, "makeModel");
-                if (!matchesBuyerConstraints(request, makeModel, price, year, miles)) continue;
                 candidates.add(new CarCandidate(
                         text(node, "id"), makeModel, text(node, "title"), sourceUrl,
-                        "US", state.toUpperCase(Locale.ROOT), price, "USD",
+                        "US", state.toUpperCase(Locale.ROOT), price, currency,
                         year, titleEligibility.mileageMilesToKm(miles), text(node, "fuel"),
                         text(node, "transmission"), text(node, "sellerClaims"), "CLEAN", quote, evidenceUrl,
                         sellerType, normalizeVin(text(node, "vin"))));
             }
             return List.copyOf(candidates);
         } catch (Exception ex) {
-            throw new IllegalStateException("Could not parse Scout results: " + ex.getMessage(), ex);
+            throw new IllegalStateException("Could not parse Scout candidates: " + ex.getMessage(), ex);
         }
+    }
+
+    private String validateCandidate(JsonNode node, SearchRequest request, String sourceUrl,
+                                     String evidenceUrl, String quote, String state, String country, String titleStatus) {
+        if (!isAllowedListingUrl(sourceUrl) || !sourceUrl.equals(evidenceUrl)) return "INVALID_SOURCE_URL";
+        if (!"US".equalsIgnoreCase(country) || state == null || !US_STATES.contains(state.toUpperCase(Locale.ROOT))) return "NON_US_LOCATION";
+        if (!"CLEAN".equalsIgnoreCase(titleStatus) || quote == null
+                || titleEligibility.classifyTitleClaim(quote, true) != TitleStatus.CLEAN_EVIDENCED) return "TITLE_NOT_EVIDENCED";
+        String sellerType = normalizeSellerType(text(node, "sellerType"));
+        if (sellerType == null || !matchesSellerType(request, sellerType)) return "SELLER_TYPE_MISMATCH";
+        if (!"USD".equalsIgnoreCase(text(node, "currency"))) return "CURRENCY_NOT_USD";
+        java.math.BigDecimal price = decimal(node, "price");
+        Integer year = integer(node, "year");
+        Integer miles = integer(node, "mileageMiles");
+        String makeModel = text(node, "makeModel");
+        if (price == null || price.signum() <= 0 || price.compareTo(request.budgetAmount()) > 0) return "PRICE_OUT_OF_RANGE";
+        if (request.minYear() != null && (year == null || year < request.minYear())) return "YEAR_BELOW_MINIMUM";
+        if (request.maxYear() != null && (year == null || year > request.maxYear())) return "YEAR_ABOVE_MAXIMUM";
+        if (request.maxMileageMiles() != null && (miles == null || miles < 0 || miles > request.maxMileageMiles())) return "MILEAGE_OUT_OF_RANGE";
+        if (request.make() != null && !request.make().isBlank()
+                && (makeModel == null || !makeModel.toLowerCase(Locale.ROOT).contains(request.make().toLowerCase(Locale.ROOT)))) return "MAKE_MISMATCH";
+        if (request.model() != null && !request.model().isBlank()
+                && (makeModel == null || !makeModel.toLowerCase(Locale.ROOT).contains(request.model().toLowerCase(Locale.ROOT)))) return "MODEL_MISMATCH";
+        return null;
+    }
+
+    private String rejectionMessage(String code) {
+        return switch (code) {
+            case "INVALID_SOURCE_URL" -> "URL is not a direct HTTPS listing on an approved marketplace, or the title evidence URL differs.";
+            case "NON_US_LOCATION" -> "Listing location is not a recognized US state/DC.";
+            case "TITLE_NOT_EVIDENCED" -> "Listing lacks an explicit, classifiable Clean/Clear Title quote.";
+            case "SELLER_TYPE_MISMATCH" -> "Seller type is missing, unsupported or outside requested filters.";
+            case "CURRENCY_NOT_USD" -> "Listing price is not explicitly in USD.";
+            case "PRICE_OUT_OF_RANGE" -> "Price is missing, non-positive or above the buyer budget.";
+            case "YEAR_BELOW_MINIMUM" -> "Year is missing or below requested minimum.";
+            case "YEAR_ABOVE_MAXIMUM" -> "Year is missing or above requested maximum.";
+            case "MILEAGE_OUT_OF_RANGE" -> "Mileage is missing, negative or above requested maximum.";
+            case "MAKE_MISMATCH" -> "Make does not match buyer criteria.";
+            case "MODEL_MISMATCH" -> "Model does not match buyer criteria.";
+            default -> "Candidate failed deterministic eligibility validation.";
+        };
+    }
+
+    private boolean matchesSellerType(SearchRequest request, String sellerType) {
+        return request.sellerTypes() == null || request.sellerTypes().isEmpty()
+                || request.sellerTypes().stream().anyMatch(type -> type.equalsIgnoreCase(sellerType));
     }
 
     private String normalizeSellerType(String value) {
@@ -196,29 +292,10 @@ public class CarHunterService {
         };
     }
 
-    private boolean matchesSellerType(SearchRequest request, String sellerType) {
-        return request.sellerTypes() == null || request.sellerTypes().isEmpty()
-                || request.sellerTypes().stream().anyMatch(type -> type.equalsIgnoreCase(sellerType));
-    }
-
     private String normalizeVin(String value) {
         if (value == null) return null;
         String vin = value.trim().toUpperCase(Locale.ROOT);
         return vin.matches("[A-HJ-NPR-Z0-9]{17}") ? vin : null;
-    }
-
-    private boolean matchesBuyerConstraints(SearchRequest request, String makeModel,
-                                             java.math.BigDecimal price, Integer year, Integer mileageMiles) {
-        if (price == null || price.signum() <= 0 || price.compareTo(request.budgetAmount()) > 0) return false;
-        if (request.minYear() != null && (year == null || year < request.minYear())) return false;
-        if (request.maxYear() != null && (year == null || year > request.maxYear())) return false;
-        if (request.maxMileageMiles() != null
-                && (mileageMiles == null || mileageMiles < 0 || mileageMiles > request.maxMileageMiles())) return false;
-        if (request.make() != null && !request.make().isBlank()
-                && (makeModel == null || !makeModel.toLowerCase(Locale.ROOT).contains(request.make().toLowerCase(Locale.ROOT)))) return false;
-        if (request.model() != null && !request.model().isBlank()
-                && (makeModel == null || !makeModel.toLowerCase(Locale.ROOT).contains(request.model().toLowerCase(Locale.ROOT)))) return false;
-        return true;
     }
 
     private boolean isAllowedListingUrl(String value) {
@@ -245,4 +322,5 @@ public class CarHunterService {
         JsonNode value = node.path(field);
         return value.isIntegralNumber() ? value.asInt() : null;
     }
+    private record ScoutPayload(String candidatesJson, List<String> reportedSources) {}
 }
