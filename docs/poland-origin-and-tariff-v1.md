@@ -51,12 +51,12 @@ OriginAssessment stores:
 - country code (ISO alpha-2);
 - review status: CONFIRMED, UNVERIFIED or CONFLICTING;
 - evidence references;
-- transport status: direct US-to-EU proven, third-country transit under customs supervision proven, unverified or non-compliant;
+- transport status: direct US-to-EU proven, third-country transit under customs supervision and without disallowed alteration proven, unverified or non-compliant;
 - review timestamp.
 
 A confirmed origin is a reviewed assertion with evidence, not an automatic conclusion from the presence of documents. For a measure that requires direct transport evidence, tariff resolution accepts only:
 - direct US-to-EU transport proven; or
-- transit through a third country with customs supervision proven.
+- transit through a third country with customs supervision and no disallowed alteration proven.
 
 Missing or contradictory origin/transport evidence produces an incomplete tariff result, never a default US preference.
 
