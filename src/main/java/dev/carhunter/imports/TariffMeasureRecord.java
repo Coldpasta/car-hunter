@@ -17,7 +17,7 @@ public record TariffMeasureRecord(
         LocalDate effectiveFrom,
         LocalDate effectiveTo,
         Instant retrievedAt,
-        boolean requiresDirectTransportEvidence) {
+        boolean requiresUsDirectTransportEvidence) {
 
     public TariffMeasureRecord {
         classificationCode = VehicleClassificationAssessment.normalizeCode(classificationCode);
@@ -29,6 +29,13 @@ public record TariffMeasureRecord(
         Objects.requireNonNull(dutyRatePercent, "dutyRatePercent");
         if (dutyRatePercent.signum() < 0 || dutyRatePercent.compareTo(new BigDecimal("100")) > 0) {
             throw new IllegalArgumentException("Duty rate must be between 0 and 100 percent");
+        }
+        if (requiresUsDirectTransportEvidence && !"US".equals(originCountryCode)) {
+            throw new IllegalArgumentException("US direct-transport evidence can only apply to US-origin measures");
+        }
+        if ("US".equals(originCountryCode) && dutyRatePercent.signum() == 0
+                && !requiresUsDirectTransportEvidence) {
+            throw new IllegalArgumentException("A zero-duty US-origin measure must require direct-transport evidence");
         }
         if (measureCode == null || measureCode.isBlank()) {
             throw new IllegalArgumentException("Tariff measure code is required");
