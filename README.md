@@ -1,70 +1,160 @@
 # CAR HUNTER
 
-An autonomous AI car-buying investigator. Give it your requirements; it searches the web, collects candidate listings, investigates reliability and price context, challenges its own findings, and produces an evidence-backed shortlist.
+CAR HUNTER is an AI-assisted vehicle discovery and import due-diligence application. It searches ordinary used-car listings in the United States, applies deterministic eligibility checks, investigates vehicle and listing evidence, and is being extended toward transparent landed-cost estimates for a user-selected destination country.
 
-Hacksgiving MVP · Java 21 · Spring Boot · OpenAI Responses API · Fly.io Sprites Connectors
+**Current scope:** US source market · dealer and private-seller retail listings · Clean Title evidence gate · Java 21 · Spring Boot · Maven
 
-## What it does
+> **Project status:** early v0.2 implementation. Listing discovery and validation are implemented in part. A complete, production-supported destination profile and end-to-end landed-cost estimate are not yet available. Poland has a researched draft profile, but it is explicitly not production-supported.
 
-1. Scout searches the web for real vehicle listings and extracts structured candidates with source URLs.
-2. Investigator researches model-specific reliability, common faults, market price context and missing information.
-3. Skeptic independently challenges claims and identifies gaps or contradictions. It can request one bounded follow-up research round.
-4. Decision ranks the candidates and explains trade-offs, evidence and questions to ask sellers.
+## Product scope
 
-The agents are specialized roles orchestrated sequentially by a bounded workflow. They share one investigation context; they are not four permanently running processes.
+The v0.2 product direction is defined in [the product specification](docs/spec-v0.2.md).
+
+- **Source market:** United States only.
+- **Listings:** ordinary used-car retail listings from dealers and private sellers.
+- **Title scope:** Clean Title candidates only. Missing or ambiguous title evidence remains unverified; branded-title vehicles are excluded.
+- **Destinations:** selected by the user using an ISO 3166-1 alpha-2 country code. A destination must not be treated as fully supported until its rules and required cost inputs are implemented and verified.
+- **Out of scope:** Copart/IAAI and other auction sourcing, salvage/rebuilt/flood vehicles, seller contact, negotiation, offers, deposits, payments and vehicle purchases.
+
+A marketplace's Clean/Clear Title statement independently confirmed in listing-page text is not proof of legal title history, accident-free condition or mechanical condition. A vehicle-history check and independent inspection are still necessary.
+
+## Investigation workflow
+
+The application orchestrates bounded specialist roles in one investigation:
+
+1. **Scout** discovers US retail listings and returns candidate facts and source URLs.
+2. **Deterministic validation** checks listing eligibility, seller type, location, price and other required fields; deduplicates candidates and verifies title wording against accessible listing-page text.
+3. **Investigator** researches model-specific reliability, price context and available evidence.
+4. **Skeptic** challenges weak claims, contradictions and missing information, with a bounded follow-up round.
+5. **Decision** produces a risk-aware shortlist and explains trade-offs.
+
+AI-generated output is advisory. Hard eligibility checks and monetary arithmetic belong in deterministic Java code. Source coverage and public-page availability can vary; the application must disclose missing or conflicting evidence rather than invent facts.
+
+## Import-cost calculation status
+
+The destination-profile interface and registry are in place. Poland's first research draft is available at [docs/destination-profiles/poland-v1.md](docs/destination-profiles/poland-v1.md).
+
+The generic landed-cost foundation currently includes:
+- Validated low / expected / high cost ranges.
+- Itemized cost components with an explicit currency and required/estimated flags.
+- Deterministic aggregation of components already converted to the calculation currency.
+- An incomplete result instead of a total when required components are missing, currencies do not match, or component codes are duplicated.
+
+This foundation does **not** yet calculate customs value, customs duty, excise, VAT, FX conversion, statutory tax bases or vehicle-specific compliance costs. Those rules must be implemented in a versioned destination profile with authoritative sources, effective dates and explicit evidence. See [landed-cost calculator foundations](docs/landed-cost-calculator-v1.md).
 
 ## Run locally
 
-Requirements: Java 21 and Maven 3.9+.
+Requirements:
+- Java 21
+- Maven 3.9+
 
-Copy .env.example to .env and set OPENAI_BASE_URL=https://api.openai.com plus OPENAI_API_KEY for local development. Then run:
+Copy `.env.example` to `.env` and configure the OpenAI settings. For local development, use the OpenAI API base URL and your own project API key:
+
+    OPENAI_BASE_URL=https://api.openai.com
+    OPENAI_API_KEY=your-project-api-key
+    OPENAI_MODEL=gpt-4.1-mini
+
+Then start the application:
 
     mvn spring-boot:run
 
-Open http://localhost:8080.
+The API listens on port 8080 by default. Set `SERVER_PORT` to change it.
 
 ## Fly.io Sprites Connector
+
+For a Fly.io Sprite deployment using the OpenAI Connector:
 
 1. In the Fly.io dashboard, open your organization → Sprites → Connectors.
 2. Add the OpenAI connector using a project API key.
 3. Grant access to the Sprite running CAR HUNTER.
-4. Keep OPENAI_API_KEY unset in the Sprite. The app calls the Fly gateway at https://api.sprites.dev/v1/gateway/openai/v1/responses; Fly injects the credential at the gateway.
-5. Set OPENAI_MODEL to a model enabled for your OpenAI project.
+4. Set `OPENAI_BASE_URL=https://api.sprites.dev/v1/gateway/openai`.
+5. Leave `OPENAI_API_KEY` unset in the Sprite; the gateway injects the credential.
+6. Set `OPENAI_MODEL` to a model enabled for your OpenAI project.
 
-Connector requests are billed to your OpenAI project. The connector keeps the raw API key outside the Sprite.
+Connector requests are billed to your OpenAI project. Keep API keys and other secrets out of source control and logs.
 
 ## API
 
-POST /api/investigations
+### Create an investigation
 
-Example request:
+`POST /api/investigations`
+
+The v0.2 request uses the US as its fixed source market and requires a destination country. Example:
 
     {
-      "budget": 100000,
-      "currency": "PLN",
-      "countries": ["Poland", "Germany"],
-      "bodyType": "family SUV",
-      "fuel": ["petrol", "hybrid"],
+      "sourceMarket": "US",
+      "destinationCountry": "PL",
+      "budgetAmount": 25000,
+      "budgetCurrency": "USD",
+      "make": "Toyota",
+      "model": "RAV4",
+      "bodyType": "SUV",
+      "fuel": ["hybrid"],
       "transmission": "automatic",
-      "minYear": 2021,
-      "maxMileageKm": 150000,
+      "minYear": 2020,
+      "maxYear": 2024,
+      "maxMileageMiles": 90000,
+      "sellerTypes": ["dealer", "private"],
+      "usState": "NJ",
+      "usZipCode": "07001",
       "candidateLimit": 5
     }
 
-GET /api/health returns application status.
+Required fields:
+- `sourceMarket`: must be `US` in v0.2.
+- `destinationCountry`: two-letter ISO 3166-1 alpha-2 code.
+- `budgetAmount`: at least 1,000 in the selected budget currency.
+- `budgetCurrency`: three-letter ISO 4217 code.
+- `candidateLimit`: between 1 and 8.
+
+Optional vehicle and location filters are validated by the API. `minYear` cannot exceed `maxYear`; `sellerTypes` accepts `dealer` and `private`.
+
+### Health
+
+`GET /api/health`
+
+Returns the application health status.
+
+## Configuration
+
+See [.env.example](.env.example) for the tracked configuration template.
+
+| Variable | Purpose |
+|---|---|
+| `OPENAI_BASE_URL` | OpenAI API base URL or Fly Sprite Connector gateway |
+| `OPENAI_API_KEY` | Local development API key; leave unset when using the Fly connector |
+| `OPENAI_MODEL` | Model enabled for the configured OpenAI project |
+| `SERVER_PORT` | HTTP port; defaults to 8080 |
+
+Never commit a populated `.env` file or API credentials.
+
+## Documentation
+
+- [Product specification v0.2](docs/spec-v0.2.md) — product scope, user journey, API/domain direction and acceptance criteria.
+- [Implementation backlog v0.2](docs/backlog-v0.2.md) — prioritized delivery tasks.
+- [Delivery status v0.2](docs/progress-v0.2.md) — implemented versus partial/not-started work.
+- [Session handoff](docs/session-handoff-v0.2.md) — technical restart notes and constraints.
+- [Poland destination profile research v1](docs/destination-profiles/poland-v1.md) — legal and tax research; not production-supported.
+- [Landed-cost calculator foundations v1](docs/landed-cost-calculator-v1.md) — current arithmetic scope and boundaries.
+
+## Quality checks
+
+Run the full Maven verification suite:
+
+    mvn --batch-mode --no-transfer-progress clean verify
+
+GitHub Actions runs the test workflow for pushes and pull requests. Deterministic validation and calculation logic should be tested independently of live search or LLM calls.
 
 ## Important limitations
 
-- Search results and listing details depend on publicly accessible pages and search coverage.
-- A listing appearing in a report does not verify accident history, mileage or ownership.
-- CAR HUNTER distinguishes reported claims from independently corroborated facts and labels unknowns.
-- Scores are decision support, not guarantees or professional mechanical inspections.
-- The MVP does not contact sellers, purchase reports or make offers.
-
-## Quality
-
-GitHub Actions runs mvn clean verify on every push and pull request.
+- Search coverage and listing-page access depend on third-party sites and publicly accessible content.
+- A listing-page title statement is evidence of what the seller/listing says, not an authoritative title-history report.
+- No-result from a history source must be treated as unknown, not as proof of a clean record.
+- Import estimates are not customs rulings, tax advice or binding freight quotes.
+- Unsupported destinations and missing mandatory inputs must not receive a fabricated all-in total.
+- Registration, homologation, modifications and roadworthiness requirements are vehicle- and case-specific.
+- CAR HUNTER does not contact sellers, negotiate, purchase reports, arrange shipping or buy vehicles.
 
 ## License
 
-MIT. See LICENSE.
+MIT. See [LICENSE](LICENSE).
