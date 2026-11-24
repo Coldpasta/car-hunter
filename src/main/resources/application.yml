@@ -15,7 +15,12 @@ management:
 
 carhunter:
   openai:
-    base-url: ${OPENAI_BASE_URL:https://api.sprites.dev/v1/gateway/openai}
-    api-key: ${OPENAI_API_KEY:}
-    model: ${OPENAI_MODEL:gpt-4.1-mini}
+    # The URL must include the connector ID and end in /v1.
+    base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+    # Sprite Connector expects a placeholder key; it injects the real credential.
+    api-key: ${OPENAI_API_KEY:sprites}
+    model: ${OPENAI_MODEL:gpt-5-mini}
     max-output-tokens: ${OPENAI_MAX_OUTPUT_TOKENS:2500}
+  tavily:
+    # Fly.io connector URL through /tavily/<connector-id>, without the /search suffix.
+    base-url: ${TAVILY_BASE_URL:}

@@ -2,14 +2,16 @@
 
 An autonomous AI car-buying investigator. Give it your requirements; it searches the web, collects candidate listings, investigates reliability and price context, challenges its own findings, and produces an evidence-backed shortlist.
 
-Hacksgiving MVP · Java 21 · Spring Boot · OpenAI Responses API · Fly.io Sprites Connectors
+Hacksgiving MVP · Java 21 · Spring Boot · OpenAI Responses API · Tavily · Fly.io Sprites Connectors
 
 ## What it does
 
-1. Scout searches the web for real vehicle listings and extracts structured candidates with source URLs.
-2. Investigator researches model-specific reliability, common faults, market price context and missing information.
-3. Skeptic independently challenges claims and identifies gaps or contradictions. It can request one bounded follow-up research round.
-4. Decision ranks the candidates and explains trade-offs, evidence and questions to ask sellers.
+1. Tavily searches public sources for vehicle listings in the requested countries.
+2. Scout selects individual vehicle listings and extracts structured candidates. Candidate URLs are accepted only when they exactly match a URL returned by Tavily.
+3. Tavily performs model/reliability searches for the selected candidates.
+4. Investigator analyzes listing evidence, reliability, price context and unknowns.
+5. Skeptic independently challenges claims and can request one bounded follow-up Tavily search.
+6. Decision ranks the candidates and explains trade-offs, evidence and questions to ask sellers.
 
 The agents are specialized roles orchestrated sequentially by a bounded workflow. They share one investigation context; they are not four permanently running processes.
 
@@ -17,21 +19,23 @@ The agents are specialized roles orchestrated sequentially by a bounded workflow
 
 Requirements: Java 21 and Maven 3.9+.
 
-Copy .env.example to .env and set OPENAI_BASE_URL=https://api.openai.com plus OPENAI_API_KEY for local development. Then run:
+For direct local OpenAI access, set OPENAI_BASE_URL=https://api.openai.com/v1, OPENAI_API_KEY to your OpenAI project key, and TAVILY_BASE_URL to a reachable Tavily API-compatible endpoint. Then run:
 
     mvn spring-boot:run
 
 Open http://localhost:8080.
 
-## Fly.io Sprites Connector
+## Fly.io Sprites Connectors
 
-1. In the Fly.io dashboard, open your organization → Sprites → Connectors.
-2. Add the OpenAI connector using a project API key.
-3. Grant access to the Sprite running CAR HUNTER.
-4. Keep OPENAI_API_KEY unset in the Sprite. The app calls the Fly gateway at https://api.sprites.dev/v1/gateway/openai/v1/responses; Fly injects the credential at the gateway.
+1. Add OpenAI and Tavily Connectors in the Fly.io dashboard.
+2. Grant both Connectors access to the Sprite label used by CAR HUNTER (the screenshot configuration uses app:car-hunter).
+3. Set OPENAI_BASE_URL to the OpenAI Connector URL shown in its API Usage section, including the connector ID and ending in /v1.
+4. Set OPENAI_API_KEY=sprites. This is a placeholder; the gateway injects the real OpenAI credential. No real OpenAI key is needed in the Sprite.
 5. Set OPENAI_MODEL to a model enabled for your OpenAI project.
+6. Set TAVILY_BASE_URL to the Tavily Connector URL ending in /tavily/<connector-id>. Do not append /search; the application adds that path.
+7. Do not store your raw Tavily API key in the Sprite; Fly injects it through the Connector.
 
-Connector requests are billed to your OpenAI project. The connector keeps the raw API key outside the Sprite.
+The OpenAI client calls POST /responses relative to the configured /v1 base URL. Tavily calls POST /search relative to its connector base URL. The OpenAI Connector is used only for model reasoning; web retrieval is performed by Tavily.
 
 ## API
 
@@ -53,10 +57,15 @@ Example request:
 
 GET /api/health returns application status.
 
+## Search cost
+
+The MVP uses one basic Tavily search per requested country, one model/reliability search per selected candidate, and at most one additional search if the Skeptic requests follow-up evidence. Keep country and candidate limits focused while using the free Tavily quota.
+
 ## Important limitations
 
 - Search results and listing details depend on publicly accessible pages and search coverage.
 - A listing appearing in a report does not verify accident history, mileage or ownership.
+- Candidate URLs must originate in the Tavily response, but the listing's content and seller claims still require independent verification.
 - CAR HUNTER distinguishes reported claims from independently corroborated facts and labels unknowns.
 - Scores are decision support, not guarantees or professional mechanical inspections.
 - The MVP does not contact sellers, purchase reports or make offers.
