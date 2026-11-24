@@ -34,6 +34,8 @@ AI-generated output is advisory. Hard eligibility checks and monetary arithmetic
 
 The destination-profile interface and registry are in place. Poland's first research draft is available at [docs/destination-profiles/poland-v1.md](docs/destination-profiles/poland-v1.md).
 
+For the hackathon demo, a separate **illustrative Poland estimator** is available in the UI and at `POST /api/demo/import-estimates`. It accepts explicit USD/PLN and duty/excise/VAT scenario assumptions, then returns an itemized PLN breakdown. Its response is marked `ILLUSTRATIVE_ONLY`; it does not query live tariffs or calculate statutory tax bases. See [hackathon MVP scope](docs/hackathon-mvp.md). This demo endpoint must not be presented as a production Poland destination profile.
+
 The generic landed-cost foundation currently includes:
 - Validated low / expected / high cost ranges.
 - Itemized cost components with an explicit currency and required/estimated flags.
@@ -136,6 +138,7 @@ Never commit a populated `.env` file or API credentials.
 - [Session handoff](docs/session-handoff-v0.2.md) — technical restart notes and constraints.
 - [Poland destination profile research v1](docs/destination-profiles/poland-v1.md) — legal and tax research; not production-supported.
 - [Landed-cost calculator foundations v1](docs/landed-cost-calculator-v1.md) — current arithmetic scope and boundaries.
+- [Hackathon MVP](docs/hackathon-mvp.md) — demo workflow, estimator formulas, explicit limitations and presentation script.
 
 ## Quality checks
 
