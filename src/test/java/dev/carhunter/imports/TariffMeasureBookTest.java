@@ -66,7 +66,7 @@ class TariffMeasureBookTest {
                 LocalDate.parse("2026-07-01"), null, true);
 
         var result = book.resolve(List.of(measure), classification("8703239000"),
-                origin("US", DirectTransportStatus.THIRD_COUNTRY_UNDER_CUSTOMS_SUPERVISION_PROVEN),
+                origin("US", DirectTransportStatus.THIRD_COUNTRY_SUPERVISED_AND_UNALTERED_PROVEN),
                 IMPORT_DATE);
 
         assertEquals(TariffResolutionStatus.FOUND, result.status());
