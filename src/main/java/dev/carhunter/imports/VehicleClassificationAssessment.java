@@ -42,8 +42,8 @@ public record VehicleClassificationAssessment(
             throw new IllegalArgumentException("CN/TARIC classification code is required");
         }
         String normalized = value.replace(" ", "");
-        if (!normalized.matches("\\d{8}|\\d{10}")) {
-            throw new IllegalArgumentException("Classification code must be an 8-digit CN or 10-digit TARIC code");
+        if (!normalized.matches("87\\d{6}|87\\d{8}")) {
+            throw new IllegalArgumentException("Vehicle classification code must be an 8-digit CN or 10-digit TARIC code in Chapter 87");
         }
         return normalized;
     }
