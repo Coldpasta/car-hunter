@@ -22,11 +22,12 @@ A marketplace's Clean/Clear Title statement independently confirmed in listing-p
 
 The application orchestrates bounded specialist roles in one investigation:
 
-1. **Scout** discovers US retail listings and returns candidate facts and source URLs.
-2. **Deterministic validation** checks listing eligibility, seller type, location, price and other required fields; deduplicates candidates and verifies title wording against accessible listing-page text.
-3. **Investigator** researches model-specific reliability, price context and available evidence.
-4. **Skeptic** challenges weak claims, contradictions and missing information, with a bounded follow-up round.
-5. **Decision** produces a risk-aware shortlist and explains trade-offs.
+1. **Tavily** searches the three approved US marketplaces using criteria-specific queries.
+2. **Scout** extracts individual vehicle candidates only from the URLs and snippets returned by Tavily.
+3. **Deterministic validation** requires an exact URL match to Tavily results, checks listing eligibility, seller type, location, price and other required fields, deduplicates candidates and verifies title wording against accessible listing-page text.
+4. **Tavily + Investigator** gather model-level reliability, recall and price-context evidence; the Investigator analyzes the supplied evidence.
+5. **Skeptic** challenges weak claims, contradictions and missing information; it can trigger at most one bounded Tavily follow-up search.
+6. **Decision** produces a risk-aware shortlist and explains trade-offs.
 
 AI-generated output is advisory. Hard eligibility checks and monetary arithmetic belong in deterministic Java code. Source coverage and public-page availability can vary; the application must disclose missing or conflicting evidence rather than invent facts.
 
@@ -74,6 +75,21 @@ For a Fly.io Sprite deployment using the OpenAI Connector:
 6. Set `OPENAI_MODEL` to a model enabled for your OpenAI project.
 
 Connector requests are billed to your OpenAI project. Keep API keys and other secrets out of source control and logs.
+
+## Tavily search integration
+
+Vehicle discovery and evidence retrieval use a separate Tavily Connector. Configure \`TAVILY_BASE_URL\` with the connector gateway URL ending in \`/tavily/<connector-id>\`; do not append \`/search\`, because the application adds that path.
+
+The Sprite must be granted access to the Tavily Connector. The connector injects the Tavily credential, so do not store a raw Tavily API key in the repository or application configuration.
+
+The Java workflow:
+- Executes the three marketplace-specific queries produced by \`UsListingQueryPlanner\` for Cars.com, Autotrader and CarGurus.
+- Passes the returned result URLs and snippets to Scout. Scout cannot invoke an independent web-search tool.
+- Accepts a candidate only when its exact URL appears in the Tavily listing results and it passes the existing HTTPS marketplace allowlist and deterministic eligibility checks.
+- Independently fetches the listing page and checks the seller's Clean/Clear Title quote in visible page text. This is evidence of page wording only, not legal title-history verification.
+- Uses Tavily for model-level reliability research and allows at most one Skeptic-requested follow-up search.
+
+A URL appearing in Tavily results is not proof that a listing is genuine, eligible or legally clean. If Tavily is not configured, investigation requests fail with a configuration error; the application can still start.
 
 ## API
 
@@ -126,6 +142,7 @@ See [.env.example](.env.example) for the tracked configuration template.
 | `OPENAI_BASE_URL` | OpenAI API base URL or Fly Sprite Connector gateway |
 | `OPENAI_API_KEY` | Local development API key; leave unset when using the Fly connector |
 | `OPENAI_MODEL` | Model enabled for the configured OpenAI project |
+| `TAVILY_BASE_URL` | Fly.io Tavily Connector gateway URL, without the `/search` suffix; required for investigations |
 | `SERVER_PORT` | HTTP port; defaults to 8080 |
 
 Never commit a populated `.env` file or API credentials.
