@@ -136,7 +136,9 @@ class TariffMeasureBookTest {
     @Test
     void rejectsVinAsAClassificationCodeAndInvalidOriginCountry() {
         assertThrows(IllegalArgumentException.class, () -> classification("1HGCM82633A004352"));
+        assertThrows(IllegalArgumentException.class, () -> classification("99000000"));
         assertThrows(IllegalArgumentException.class, () -> origin("USA", DirectTransportStatus.DIRECT_US_TO_EU_PROVEN));
+        assertThrows(IllegalArgumentException.class, () -> origin("ZZ", DirectTransportStatus.UNVERIFIED));
     }
 
     private VehicleClassificationAssessment classification(String code) {
