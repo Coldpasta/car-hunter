@@ -44,7 +44,7 @@ public class TariffMeasureBook {
         }
 
         TariffMeasureRecord measure = matches.getFirst();
-        if (measure.requiresDirectTransportEvidence()
+        if (measure.requiresUsDirectTransportEvidence()
                 && !origin.hasRequiredUsTransportEvidence()) {
             return TariffResolution.incomplete(TariffResolutionStatus.DIRECT_TRANSPORT_UNPROVEN);
         }
