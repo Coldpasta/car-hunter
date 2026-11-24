@@ -54,7 +54,7 @@ OriginAssessment stores:
 - transport status: direct US-to-EU proven, third-country transit under customs supervision and without disallowed alteration proven, unverified or non-compliant;
 - review timestamp.
 
-A confirmed origin is a reviewed assertion with evidence, not an automatic conclusion from the presence of documents. For a measure that requires direct transport evidence, tariff resolution accepts only:
+A confirmed origin is a reviewed assertion with evidence, not an automatic conclusion from the presence of documents. VIN decoding alone is rejected as conclusive origin evidence. A proven transport status also requires separate transport-document references. For a measure that requires direct transport evidence, tariff resolution accepts only:
 - direct US-to-EU transport proven; or
 - transit through a third country with customs supervision and no disallowed alteration proven.
 
