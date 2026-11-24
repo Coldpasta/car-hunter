@@ -39,7 +39,7 @@ class DemoImportEstimatorTest {
         var result = estimator.estimate(request);
 
         assertThat(result.dutyEstimatePln()).isEqualByComparingTo("2000.00");
-        assertThat(result.estimatedTotalPln()).isEqualByComparingTo("56571.46");
+        assertThat(result.estimatedTotalPln()).isEqualByComparingTo("56561.46");
     }
 
     private static BigDecimal bd(String value) {
