@@ -39,7 +39,8 @@ class CarHunterServiceTest {
                 "currency":"USD","year":2022,"mileageMiles":50000,"fuel":"hybrid","transmission":"automatic",
                 "sellerClaims":"Dealer listing","titleStatus":"CLEAN",
                 "titleEvidenceQuote":"Clean title","titleEvidenceUrl":"https://www.cars.com/vehicledetail/123",
-                "sellerType":"dealer","vin":"1HGCM82633A004352"}]}
+                "sellerType":"dealer","vin":"1HGCM82633A004352"}],
+                "diagnostics":{"searchedSources":["cars.com","autotrader.com","cargurus.com"]}}
                 """;
     }
 
@@ -58,6 +59,10 @@ class CarHunterServiceTest {
         assertEquals(80467, report.candidates().getFirst().mileageKm());
         assertTrue(report.recommendation().contains("inspect"));
         assertEquals(8, report.activity().size());
+        assertEquals(1, report.scoutDiagnostics().discoveredCount());
+        assertEquals(1, report.scoutDiagnostics().eligibleCount());
+        assertEquals(List.of("cars.com", "autotrader.com", "cargurus.com"), report.scoutDiagnostics().searchedSources());
+        assertTrue(report.scoutDiagnostics().rejections().isEmpty());
         verify(agents, times(1)).run(eq("SCOUT"), anyString(), anyString());
         verify(agents, times(1)).run(eq("INVESTIGATOR"), anyString(), anyString());
         verify(agents, times(1)).run(eq("SKEPTIC"), anyString(), anyString());
@@ -69,7 +74,8 @@ class CarHunterServiceTest {
         when(agents.run(eq("SCOUT"), anyString(), anyString())).thenReturn("""
                 {"candidates":[{"id":"fake","title":"No source","sourceUrl":"http://example.com/car"}]}
                 """);
-        assertThrows(IllegalStateException.class, () -> service.investigate(criteria()));
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> service.investigate(criteria()));
+        assertTrue(error.getMessage().contains("INVALID_SOURCE_URL"));
         verify(agents, never()).run(eq("INVESTIGATOR"), anyString(), anyString());
     }
 
