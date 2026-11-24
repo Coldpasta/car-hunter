@@ -22,9 +22,5 @@ public record InvestigationReport(
             List<Rejection> rejections
     ) {}
 
-    public record Rejection(
-            String sourceUrl,
-            String reasonCode,
-            String reason
-    ) {}
+    public record Rejection(String sourceUrl, String reasonCode, String reason) {}
 }
