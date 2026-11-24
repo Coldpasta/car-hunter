@@ -8,7 +8,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
-import java.util.List;
 import java.util.Map;
 
 @Component
@@ -42,7 +41,6 @@ public class OpenAiAgentGateway implements AgentGateway {
         Map<String, Object> body = Map.of(
                 "model", model,
                 "input", input,
-                "tools", List.of(Map.of("type", "web_search")),
                 "max_output_tokens", maxOutputTokens,
                 "store", false
         );
