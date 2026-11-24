@@ -49,7 +49,8 @@ This file tracks implementation evidence, not aspirational scope. A task is mark
 - PR #6 — independent listing-page text verification.
 - PR #8 — Scout diagnostics and listing verifier hardening.
 - PR #9 — Poland destination-profile research draft (not production-supported).
-- PR #10 — deterministic landed-cost scenario foundations and README refresh.\n- PR #11 — explicit tax-specific FX rate records and effective-date lookup.
+- PR #10 — deterministic landed-cost scenario foundations and README refresh.
+- PR #11 — explicit tax-specific FX rate records and effective-date lookup.
 
 ## Current work
 
