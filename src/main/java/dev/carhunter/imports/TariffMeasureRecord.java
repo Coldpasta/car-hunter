@@ -4,7 +4,8 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.Arrays;\nimport java.util.Locale;
+import java.util.Arrays;
+import java.util.Locale;
 import java.util.Objects;
 
 /** One exact, sourced tariff measure for one classification, origin and effective period. */
