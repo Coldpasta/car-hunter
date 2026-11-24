@@ -216,6 +216,7 @@ Research snapshot date: 2026-11-24. Sources should be revalidated before every p
 9. Gov.pl — register a vehicle, document and inspection guidance: https://www.gov.pl/web/gov/zarejestruj-pojazd
 10. Act on vehicle type approval systems and equipment, Dz.U. 2023 poz. 919: https://eli.gov.pl/api/acts/DU/2023/919/text.html
 11. Transport Technical Supervision (TDT) — individual vehicle approval: https://www.tdt.gov.pl/zalatw-sprawe/homologacja-pojazdow/swiadectwo-krajowego-indywidualnego-dopuszczenia-pojazdu/
+12. European Commission, Q&A on Article 59a UCC-IA (revised 16 October 2026): https://taxation-customs.ec.europa.eu/document/download/e6ea53a6-3eb6-4a2a-a2df-0b4828ae1188_en?filename=Q%26A+-+UCC-IA+Article+59a+-+rev2.pdf
 
 ## 10. Open items before marking PL supported
 
