@@ -68,8 +68,7 @@ public class CarHunterService {
     private final ListingPageVerifier pageVerifier;
 
     public CarHunterService(AgentGateway agents, ObjectMapper mapper,
-                            UsListingQueryPlanner queryPlanner, ListingEligibility titleEligibility,
-                            ListingDeduplicator deduplicator, ListingPageVerifier pageVerifier) {
+                            UsListingQueryPlanner queryPlanner, ListingEligibility titleEligibility, ListingDeduplicator deduplicator, ListingPageVerifier pageVerifier) {
         this.agents = agents;
         this.mapper = mapper;
         this.queryPlanner = queryPlanner;
@@ -89,41 +88,33 @@ public class CarHunterService {
         String scoutOutput = agents.run("SCOUT", SCOUT,
                 "Buyer criteria (JSON):\n" + criteria + "\n\nExecute these marketplace-specific searches:\n- "
                         + String.join("\n- ", queries));
-        ScoutPayload payload = parseScoutPayload(scoutOutput);
-        List<CarCandidate> parsed = parseCandidates(payload.candidatesJson(), request, rejections);
-        List<CarCandidate> deduplicated = deduplicator.deduplicate(parsed);
-        for (CarCandidate candidate : parsed) {
-            if (!deduplicated.contains(candidate)) {
-                rejections.add(new InvestigationReport.Rejection(candidate.sourceUrl(), "DUPLICATE",
-                        "Duplicate listing removed by VIN or canonical URL."));
-            }
-        }
-        List<CarCandidate> discovered = deduplicated.stream().limit(request.candidateLimit()).toList();
+        List<CarCandidate> discovered = deduplicator.deduplicate(parseCandidates(scoutOutput, request))
+                .stream().limit(request.candidateLimit()).toList();
         if (discovered.isEmpty()) {
-            throw new IllegalStateException("Scout found no listings that meet the US retail and evidenced Clean Title requirements. Rejections: "
-                    + summarizeRejections(rejections));
+            throw new IllegalStateException("Scout found no listings that meet the US retail and evidenced Clean Title requirements. Try widening the vehicle criteria or budget.");
         }
 
         List<CarCandidate> candidates = new ArrayList<>();
+        List<String> verificationFailures = new ArrayList<>();
         for (CarCandidate candidate : discovered) {
             ListingPageVerifier.Verification verification = pageVerifier.verify(
                     candidate.sourceUrl(), candidate.titleEvidenceQuote());
             if (verification.verified()) {
                 candidates.add(candidate);
             } else {
-                rejections.add(new InvestigationReport.Rejection(candidate.sourceUrl(), "PAGE_EVIDENCE_NOT_VERIFIED",
-                        verification.reason()));
+                verificationFailures.add(candidate.sourceUrl() + " — " + verification.reason());
             }
         }
         if (candidates.isEmpty()) {
-            throw new IllegalStateException("No listing passed independent page verification. "
-                    + summarizeRejections(rejections));
+            throw new IllegalStateException("No listing passed independent page verification. " +
+                    String.join(" ", verificationFailures));
         }
-        activity.add("SCOUT: " + parsed.size() + " candidates passed deterministic validation; "
-                + discovered.size() + " remained after deduplication/limit; " + candidates.size()
-                + " passed independent page-text verification");
-        if (!rejections.isEmpty()) activity.add("SCOUT: rejected " + rejections.size()
-                + " candidate(s); structured reasons are attached to report diagnostics");
+        activity.add("SCOUT: independently fetched " + discovered.size() + " listing pages; "
+                + candidates.size() + " contained the exact seller title-evidence quote");
+        if (!verificationFailures.isEmpty()) {
+            activity.add("SCOUT: excluded " + verificationFailures.size()
+                    + " listings because page evidence could not be independently confirmed");
+        }
 
         activity.add("INVESTIGATOR: researching reliability, recalls, title checks and price context");
         String research = agents.run("INVESTIGATOR", INVESTIGATOR,

@@ -2,8 +2,6 @@ package dev.carhunter.service;
 
 import org.springframework.stereotype.Component;
 
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -37,6 +35,8 @@ public class ListingPageVerifier {
         try {
             URI uri = URI.create(listingUrl);
             if (!isApprovedUri(uri)) {
+            if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null
+                    || !ALLOWED_HOSTS.contains(uri.getHost().toLowerCase(Locale.ROOT))) {
                 return Verification.failed("Listing URL is outside the approved HTTPS marketplace hosts.");
             }
             HttpRequest request = HttpRequest.newBuilder(uri)
@@ -68,6 +68,24 @@ public class ListingPageVerifier {
                 }
                 return new Verification(true, "Exact title-evidence quote found in fetched listing HTML.", Instant.now());
             }
+            HttpResponse<String> response = client.send(request,
+                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                return Verification.failed("Listing page could not be fetched (HTTP " + response.statusCode() + ").");
+            }
+            String contentType = response.headers().firstValue("content-type").orElse("");
+            if (!contentType.toLowerCase(Locale.ROOT).contains("text/html")) {
+                return Verification.failed("Marketplace response was not an HTML listing page.");
+            }
+            String visibleText = NON_VISIBLE.matcher(response.body()).replaceAll(" ");
+            visibleText = TAGS.matcher(visibleText).replaceAll(" ");
+            visibleText = decodeBasicEntities(visibleText);
+            String normalizedPage = normalize(visibleText);
+            String normalizedQuote = normalize(expectedQuote);
+            if (normalizedQuote.isBlank() || !normalizedPage.contains(normalizedQuote)) {
+                return Verification.failed("The seller's Clean/Clear Title quote was not found in the fetched listing page.");
+            }
+            return new Verification(true, "Exact title-evidence quote found in fetched listing HTML.", Instant.now());
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             return Verification.failed("Listing verification was interrupted.");
