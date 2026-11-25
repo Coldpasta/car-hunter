@@ -19,3 +19,6 @@ carhunter:
     api-key: ${OPENAI_API_KEY:}
     model: ${OPENAI_MODEL:gpt-4.1-mini}
     max-output-tokens: ${OPENAI_MAX_OUTPUT_TOKENS:2500}
+  tavily:
+    # Fly.io Tavily Connector URL, without the /search suffix.
+    base-url: ${TAVILY_BASE_URL:}
